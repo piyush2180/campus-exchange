@@ -28,14 +28,14 @@ function Landing() {
           <div className="mx-auto max-w-3xl text-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-[color:var(--brand)]" />
-              Now in beta — earn coins from every step
+              Now in beta — earn coins from daily wellness &amp; steps
             </span>
             <h1 className="mt-6 text-balance text-5xl font-bold tracking-tight md:text-7xl">
               Turn your steps into <span className="brand-gradient-text">investments</span>.
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-pretty text-base text-muted-foreground md:text-lg">
-              Walk. Earn. Invest. Build a portfolio with every step you take —
-              powered by a playful, simulated market built for movers.
+              Walk. Log. Invest. Build a portfolio with every wellness goal you achieve — powered by
+              a playful, simulated market built for movers.
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button size="lg" asChild>
@@ -48,7 +48,7 @@ function Landing() {
               </Button>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              No credit card required · 100 steps = 1 coin
+              No credit card required · Daily wellness check-ins &amp; activity scores
             </p>
           </div>
 
@@ -98,14 +98,14 @@ function Landing() {
             <Step
               n="01"
               icon={<Footprints className="h-5 w-5" />}
-              title="Track steps"
-              text="Sync your daily activity in one tap. Every step counts toward your balance."
+              title="Log daily wellness"
+              text="Complete your daily check-in with steps, sleep, water, and mood."
             />
             <Step
               n="02"
               icon={<Coins className="h-5 w-5" />}
               title="Earn coins"
-              text="Every 100 steps converts into 1 coin you can spend in the simulated market."
+              text="Your Activity Score and consistency streaks award coins directly to your wallet."
             />
             <Step
               n="03"
@@ -130,8 +130,8 @@ function Landing() {
           <div className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             <Feature
               icon={<Activity className="h-5 w-5" />}
-              title="Step tracking"
-              text="One-tap sync turns your daily activity into a balance you can use."
+              title="Wellness & step tracking"
+              text="Daily check-ins turn your activity and healthy habits into investment coins."
             />
             <Feature
               icon={<TrendingUp className="h-5 w-5" />}
@@ -250,20 +250,10 @@ function Step({
   );
 }
 
-function Feature({
-  icon,
-  title,
-  text,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  text: string;
-}) {
+function Feature({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-6 transition-colors hover:border-foreground/20">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-        {icon}
-      </span>
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">{icon}</span>
       <h3 className="mt-4 text-base font-semibold">{title}</h3>
       <p className="mt-1.5 text-sm text-muted-foreground">{text}</p>
     </div>

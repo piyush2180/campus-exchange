@@ -13,8 +13,8 @@ export function Footer() {
               <span className="text-base font-semibold tracking-tight">Campus Exchange</span>
             </div>
             <p className="mt-3 max-w-sm text-sm text-muted-foreground">
-              Turn your daily movement into a portfolio. A playful take on investing,
-              built for the next generation.
+              Turn your daily movement into a portfolio. A playful take on investing, built for the
+              next generation.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-8 text-sm">

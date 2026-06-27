@@ -1,32 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fluctuateAssets, stepsToCoins, STEPS_PER_COIN, seedAssets } from "@/lib/store";
+import type { Asset, Holding, Profile, AppUser, AppState } from "@/types";
 import {
-  type Asset,
-  type Holding,
-  fluctuateAssets,
-  stepsToCoins,
-  STEPS_PER_COIN,
-  seedAssets,
-} from "@/lib/store";
+  fetchProfile,
+  fetchHoldings,
+  updateProfileCoins,
+  upsertHolding,
+  deleteHolding,
+  updateHoldingShares,
+} from "@/services/trading.service";
 
-export type Profile = {
-  id: string;
-  display_name: string;
-  steps_today: number;
-  total_steps: number;
-  coins: number;
-  last_sync: string | null;
-};
-
-export type AppUser = { id: string; email: string; name: string };
-
-export type AppState = {
-  user: AppUser | null;
-  loading: boolean;
-  profile: Profile | null;
-  assets: Asset[];
-  holdings: Holding[];
-};
+export type { Profile, AppUser, AppState };
 
 export function useApp() {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -50,7 +35,6 @@ export function useApp() {
         };
         setUser(next);
         userIdRef.current = u.id;
-        // defer DB calls
         setTimeout(() => loadAll(u.id), 0);
       } else {
         setUser(null);
@@ -80,31 +64,18 @@ export function useApp() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  const tradingRef = useRef(false);
+
   async function loadAll(uid: string) {
     setLoading(true);
-    const [{ data: prof }, { data: hs }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
-      supabase.from("holdings").select("*").eq("user_id", uid),
-    ]);
-    if (prof) {
-      setProfile({
-        id: prof.id,
-        display_name: prof.display_name,
-        steps_today: prof.steps_today,
-        total_steps: prof.total_steps,
-        coins: Number(prof.coins),
-        last_sync: prof.last_sync,
-      });
+    let prof = await fetchProfile(uid);
+    const hs = await fetchHoldings(uid);
+    if (!prof) {
+      await new Promise((r) => setTimeout(r, 400));
+      prof = await fetchProfile(uid);
     }
-    if (hs) {
-      setHoldings(
-        hs.map((h) => ({
-          assetId: h.asset_id,
-          shares: Number(h.shares),
-          avgPrice: Number(h.avg_price),
-        })),
-      );
-    }
+    if (prof) setProfile(prof);
+    setHoldings(hs);
     setLoading(false);
   }
 
@@ -138,7 +109,7 @@ export function useApp() {
     await supabase.auth.signOut();
   }, []);
 
-  // Credit a delta of real (live-pedometer) steps to the user
+  // Credit a delta of live steps to the user
   const addLiveSteps = useCallback(
     async (delta: number) => {
       const uid = userIdRef.current;
@@ -168,7 +139,7 @@ export function useApp() {
     [profile],
   );
 
-  // Adjust coin balance (for bet stakes/payouts). Returns false if insufficient.
+  // Adjust coin balance
   const adjustCoins = useCallback(
     async (delta: number) => {
       const uid = userIdRef.current;
@@ -176,7 +147,7 @@ export function useApp() {
       const next = +(profile.coins + delta).toFixed(2);
       if (next < 0) return false;
       setProfile({ ...profile, coins: next });
-      await supabase.from("profiles").update({ coins: next }).eq("id", uid);
+      await updateProfileCoins(uid, next);
       return true;
     },
     [profile],
@@ -213,81 +184,83 @@ export function useApp() {
 
   const buy = useCallback(
     async (asset: Asset, shares = 1) => {
-      const uid = userIdRef.current;
-      if (!uid || !profile) return { ok: false, reason: "Not signed in" };
-      const cost = asset.price * shares;
-      if (profile.coins < cost) return { ok: false, reason: "Not enough coins" };
+      if (tradingRef.current) return { ok: false, reason: "Trade in progress" };
+      tradingRef.current = true;
+      try {
+        const uid = userIdRef.current;
+        if (!uid || !profile) return { ok: false, reason: "Not signed in" };
+        const cost = asset.price * shares;
+        if (profile.coins < cost) return { ok: false, reason: "Not enough coins" };
 
-      const existing = holdings.find((h) => h.assetId === asset.id);
-      const newShares = (existing?.shares ?? 0) + shares;
-      const newAvg = existing
-        ? (existing.avgPrice * existing.shares + asset.price * shares) / newShares
-        : asset.price;
+        const existing = holdings.find((h) => h.assetId === asset.id);
+        const newShares = (existing?.shares ?? 0) + shares;
+        const newAvg = existing
+          ? (existing.avgPrice * existing.shares + asset.price * shares) / newShares
+          : asset.price;
 
-      const newCoins = +(profile.coins - cost).toFixed(2);
+        const newCoins = +(profile.coins - cost).toFixed(2);
 
-      setProfile({ ...profile, coins: newCoins });
-      setHoldings((prev) => {
-        const without = prev.filter((h) => h.assetId !== asset.id);
-        return [...without, { assetId: asset.id, shares: newShares, avgPrice: newAvg }];
-      });
+        setProfile({ ...profile, coins: newCoins });
+        setHoldings((prev) => {
+          const without = prev.filter((h) => h.assetId !== asset.id);
+          return [...without, { assetId: asset.id, shares: newShares, avgPrice: newAvg }];
+        });
 
-      await Promise.all([
-        supabase.from("profiles").update({ coins: newCoins }).eq("id", uid),
-        supabase
-          .from("holdings")
-          .upsert(
-            {
-              user_id: uid,
-              asset_id: asset.id,
-              shares: newShares,
-              avg_price: newAvg,
-            },
-            { onConflict: "user_id,asset_id" },
-          ),
-      ]);
-      return { ok: true };
+        await Promise.all([
+          updateProfileCoins(uid, newCoins),
+          upsertHolding({
+            user_id: uid,
+            asset_id: asset.id,
+            shares: newShares,
+            avg_price: newAvg,
+          }),
+        ]);
+        return { ok: true };
+      } finally {
+        tradingRef.current = false;
+      }
     },
     [profile, holdings],
   );
 
   const sell = useCallback(
     async (asset: Asset, shares = 1) => {
-      const uid = userIdRef.current;
-      if (!uid || !profile) return { ok: false };
-      const existing = holdings.find((h) => h.assetId === asset.id);
-      if (!existing || existing.shares < shares) return { ok: false };
+      if (tradingRef.current) return { ok: false };
+      tradingRef.current = true;
+      try {
+        const uid = userIdRef.current;
+        if (!uid || !profile) return { ok: false };
+        const existing = holdings.find((h) => h.assetId === asset.id);
+        if (!existing || existing.shares < shares) return { ok: false };
 
-      const proceeds = asset.price * shares;
-      const remaining = existing.shares - shares;
-      const newCoins = +(profile.coins + proceeds).toFixed(2);
+        const proceeds = asset.price * shares;
+        const remaining = existing.shares - shares;
+        const newCoins = +(profile.coins + proceeds).toFixed(2);
 
-      setProfile({ ...profile, coins: newCoins });
-      setHoldings((prev) => {
-        if (remaining === 0) return prev.filter((h) => h.assetId !== asset.id);
-        return prev.map((h) =>
-          h.assetId === asset.id ? { ...h, shares: remaining } : h,
-        );
-      });
+        setProfile({ ...profile, coins: newCoins });
+        setHoldings((prev) => {
+          if (remaining === 0) return prev.filter((h) => h.assetId !== asset.id);
+          return prev.map((h) => (h.assetId === asset.id ? { ...h, shares: remaining } : h));
+        });
 
-      await supabase.from("profiles").update({ coins: newCoins }).eq("id", uid);
-      if (remaining === 0) {
-        await supabase
-          .from("holdings")
-          .delete()
-          .eq("user_id", uid)
-          .eq("asset_id", asset.id);
-      } else {
-        await supabase
-          .from("holdings")
-          .update({ shares: remaining })
-          .eq("user_id", uid)
-          .eq("asset_id", asset.id);
+        await updateProfileCoins(uid, newCoins);
+        if (remaining === 0) {
+          await deleteHolding(uid, asset.id);
+        } else {
+          await updateHoldingShares(uid, asset.id, remaining);
+        }
+        return { ok: true };
+      } finally {
+        tradingRef.current = false;
       }
-      return { ok: true };
     },
     [profile, holdings],
   );
+
+  const refresh = useCallback(async () => {
+    const uid = userIdRef.current;
+    if (uid) await loadAll(uid);
+  }, []);
 
   const state: AppState = { user, loading, profile, assets, holdings };
   return {
@@ -301,5 +274,6 @@ export function useApp() {
     buy,
     sell,
     STEPS_PER_COIN,
+    refresh,
   };
 }

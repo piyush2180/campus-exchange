@@ -11,7 +11,10 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Sign in — Campus Exchange" },
-      { name: "description", content: "Sign in to Campus Exchange and start investing your steps." },
+      {
+        name: "description",
+        content: "Sign in to Campus Exchange and start investing your steps.",
+      },
     ],
   }),
   component: LoginPage,
@@ -101,7 +104,7 @@ function LoginPage() {
             <p className="mt-1.5 text-sm text-muted-foreground">
               {mode === "signin"
                 ? "Sign in to continue building your portfolio."
-                : "Start earning coins for every step today."}
+                : "Start earning coins from your daily wellness goals."}
             </p>
 
             <form onSubmit={onSubmit} className="mt-6 space-y-4">

@@ -44,11 +44,31 @@ export const Route = createRootRoute({
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Campus Exchange — Turn Your Steps Into Investments" },
-      { name: "description", content: "Turn your steps into investments with Coin Walk, a modern web app for earning virtual coins and trading them in a simulated stock market." },
-      { property: "og:description", content: "Turn your steps into investments with Coin Walk, a modern web app for earning virtual coins and trading them in a simulated stock market." },
-      { name: "twitter:description", content: "Turn your steps into investments with Coin Walk, a modern web app for earning virtual coins and trading them in a simulated stock market." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6b936d7f-9cf4-444c-9ec3-7ef16fb3a424/id-preview-f97bf261--431ab2f2-83bf-4a86-b967-61f628eb9183.lovable.app-1776624378586.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6b936d7f-9cf4-444c-9ec3-7ef16fb3a424/id-preview-f97bf261--431ab2f2-83bf-4a86-b967-61f628eb9183.lovable.app-1776624378586.png" },
+      {
+        name: "description",
+        content:
+          "Turn your steps into investments with Coin Walk, a modern web app for earning virtual coins and trading them in a simulated stock market.",
+      },
+      {
+        property: "og:description",
+        content:
+          "Turn your steps into investments with Coin Walk, a modern web app for earning virtual coins and trading them in a simulated stock market.",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "Turn your steps into investments with Coin Walk, a modern web app for earning virtual coins and trading them in a simulated stock market.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6b936d7f-9cf4-444c-9ec3-7ef16fb3a424/id-preview-f97bf261--431ab2f2-83bf-4a86-b967-61f628eb9183.lovable.app-1776624378586.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6b936d7f-9cf4-444c-9ec3-7ef16fb3a424/id-preview-f97bf261--431ab2f2-83bf-4a86-b967-61f628eb9183.lovable.app-1776624378586.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

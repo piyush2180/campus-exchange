@@ -87,7 +87,8 @@
   --chart-4: oklch(0.6 0.18 300);
   --chart-5: oklch(0.65 0.2 25);
 
-  --gradient-hero: radial-gradient(
+  --gradient-hero:
+    radial-gradient(
       120% 80% at 80% 0%,
       color-mix(in oklab, var(--brand) 22%, transparent) 0%,
       transparent 60%
@@ -97,14 +98,11 @@
       color-mix(in oklab, oklch(0.65 0.14 230) 18%, transparent) 0%,
       transparent 55%
     );
-  --gradient-brand: linear-gradient(
-    135deg,
-    oklch(0.72 0.17 155) 0%,
-    oklch(0.65 0.14 195) 100%
-  );
+  --gradient-brand: linear-gradient(135deg, oklch(0.72 0.17 155) 0%, oklch(0.65 0.14 195) 100%);
   --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px -12px oklch(0 0 0 / 0.08);
   --shadow-card: 0 1px 0 oklch(0 0 0 / 0.02), 0 8px 32px -16px oklch(0 0 0 / 0.1);
-  --shadow-glow: 0 0 0 1px color-mix(in oklab, var(--brand) 30%, transparent),
+  --shadow-glow:
+    0 0 0 1px color-mix(in oklab, var(--brand) 30%, transparent),
     0 12px 40px -12px color-mix(in oklab, var(--brand) 40%, transparent);
 }
 

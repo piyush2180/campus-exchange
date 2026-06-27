@@ -27,19 +27,41 @@ export function Navbar() {
         <nav className="hidden items-center gap-8 md:flex">
           {onApp ? (
             <>
-              <Link to="/app" activeOptions={{ exact: true }} className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground">
+              <Link
+                to="/app"
+                activeOptions={{ exact: true }}
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground"
+              >
                 Dashboard
               </Link>
-              <Link to="/app/market" className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground">
+              <Link
+                to="/app/history"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground"
+              >
+                Wellness
+              </Link>
+              <Link
+                to="/app/market"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground"
+              >
                 Market
               </Link>
-              <Link to="/app/portfolio" className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground">
+              <Link
+                to="/app/portfolio"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground"
+              >
                 Portfolio
               </Link>
-              <Link to="/app/bets" className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground">
+              <Link
+                to="/app/bets"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground"
+              >
                 Bets
               </Link>
-              <Link to="/app/leaderboard" className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground">
+              <Link
+                to="/app/leaderboard"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground [&.active]:text-foreground"
+              >
                 Leaderboard
               </Link>
             </>

@@ -1,25 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { Asset } from "@/lib/store";
+import type { Asset, Bet } from "@/types";
+import {
+  fetchUserBets,
+  createMarketBet,
+  createGoalBet,
+  createDuelBet,
+  updateBetStatus,
+} from "@/services/bets.service";
 
-export type Bet = {
-  id: string;
-  user_id: string;
-  bet_type: "market" | "duel" | "goal";
-  asset_id: string | null;
-  direction: "up" | "down" | null;
-  stake: number;
-  payout_multiplier: number;
-  status: "pending" | "won" | "lost" | "cancelled";
-  target_value: number | null;
-  start_price: number | null;
-  end_price: number | null;
-  start_steps: number | null;
-  opponent_id: string | null;
-  resolves_at: string;
-  resolved_at: string | null;
-  created_at: string;
-};
+export type { Bet };
 
 export function useBets(userId: string | null) {
   const [bets, setBets] = useState<Bet[]>([]);
@@ -28,13 +17,8 @@ export function useBets(userId: string | null) {
   const refresh = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("bets")
-      .select("*")
-      .or(`user_id.eq.${userId},opponent_id.eq.${userId}`)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (data) setBets(data as Bet[]);
+    const data = await fetchUserBets(userId);
+    setBets(data);
     setLoading(false);
   }, [userId]);
 
@@ -46,20 +30,16 @@ export function useBets(userId: string | null) {
     async (asset: Asset, direction: "up" | "down", stake: number) => {
       if (!userId) return { ok: false as const };
       const resolvesAt = new Date(Date.now() + 60_000).toISOString();
-      const { data, error } = await supabase
-        .from("bets")
-        .insert({
-          user_id: userId,
-          bet_type: "market",
-          asset_id: asset.id,
-          direction,
-          stake,
-          payout_multiplier: 1.8,
-          start_price: asset.price,
-          resolves_at: resolvesAt,
-        })
-        .select()
-        .single();
+      const { data, error } = await createMarketBet({
+        user_id: userId,
+        bet_type: "market",
+        asset_id: asset.id,
+        direction,
+        stake,
+        payout_multiplier: 1.8,
+        start_price: asset.price,
+        resolves_at: resolvesAt,
+      });
       if (error || !data) return { ok: false as const };
       await refresh();
       return { ok: true as const, bet: data as Bet };
@@ -72,7 +52,7 @@ export function useBets(userId: string | null) {
       if (!userId) return { ok: false as const };
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
-      const { error } = await supabase.from("bets").insert({
+      const { error } = await createGoalBet({
         user_id: userId,
         bet_type: "goal",
         stake,
@@ -92,7 +72,7 @@ export function useBets(userId: string | null) {
     async (opponentId: string, stake: number, currentSteps: number) => {
       if (!userId) return { ok: false as const };
       const resolvesAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      const { error } = await supabase.from("bets").insert({
+      const { error } = await createDuelBet({
         user_id: userId,
         bet_type: "duel",
         stake,
@@ -110,14 +90,7 @@ export function useBets(userId: string | null) {
 
   const resolveBet = useCallback(
     async (betId: string, won: boolean, endPrice?: number) => {
-      const { error } = await supabase
-        .from("bets")
-        .update({
-          status: won ? "won" : "lost",
-          resolved_at: new Date().toISOString(),
-          end_price: endPrice ?? null,
-        })
-        .eq("id", betId);
+      const { error } = await updateBetStatus(betId, won ? "won" : "lost", endPrice);
       if (!error) await refresh();
     },
     [refresh],

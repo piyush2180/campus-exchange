@@ -17,6 +17,7 @@ import { Route as AppProfileRouteImport } from './routes/app.profile'
 import { Route as AppPortfolioRouteImport } from './routes/app.portfolio'
 import { Route as AppMarketRouteImport } from './routes/app.market'
 import { Route as AppLeaderboardRouteImport } from './routes/app.leaderboard'
+import { Route as AppHistoryRouteImport } from './routes/app.history'
 import { Route as AppBetsRouteImport } from './routes/app.bets'
 
 const LoginRoute = LoginRouteImport.update({
@@ -59,6 +60,11 @@ const AppLeaderboardRoute = AppLeaderboardRouteImport.update({
   path: '/leaderboard',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHistoryRoute = AppHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppBetsRoute = AppBetsRouteImport.update({
   id: '/bets',
   path: '/bets',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/app/bets': typeof AppBetsRoute
+  '/app/history': typeof AppHistoryRoute
   '/app/leaderboard': typeof AppLeaderboardRoute
   '/app/market': typeof AppMarketRoute
   '/app/portfolio': typeof AppPortfolioRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/app/bets': typeof AppBetsRoute
+  '/app/history': typeof AppHistoryRoute
   '/app/leaderboard': typeof AppLeaderboardRoute
   '/app/market': typeof AppMarketRoute
   '/app/portfolio': typeof AppPortfolioRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/app/bets': typeof AppBetsRoute
+  '/app/history': typeof AppHistoryRoute
   '/app/leaderboard': typeof AppLeaderboardRoute
   '/app/market': typeof AppMarketRoute
   '/app/portfolio': typeof AppPortfolioRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/app/bets'
+    | '/app/history'
     | '/app/leaderboard'
     | '/app/market'
     | '/app/portfolio'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/app/bets'
+    | '/app/history'
     | '/app/leaderboard'
     | '/app/market'
     | '/app/portfolio'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/app/bets'
+    | '/app/history'
     | '/app/leaderboard'
     | '/app/market'
     | '/app/portfolio'
@@ -197,6 +209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLeaderboardRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/history': {
+      id: '/app/history'
+      path: '/history'
+      fullPath: '/app/history'
+      preLoaderRoute: typeof AppHistoryRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/bets': {
       id: '/app/bets'
       path: '/bets'
@@ -209,6 +228,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppBetsRoute: typeof AppBetsRoute
+  AppHistoryRoute: typeof AppHistoryRoute
   AppLeaderboardRoute: typeof AppLeaderboardRoute
   AppMarketRoute: typeof AppMarketRoute
   AppPortfolioRoute: typeof AppPortfolioRoute
@@ -218,6 +238,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppBetsRoute: AppBetsRoute,
+  AppHistoryRoute: AppHistoryRoute,
   AppLeaderboardRoute: AppLeaderboardRoute,
   AppMarketRoute: AppMarketRoute,
   AppPortfolioRoute: AppPortfolioRoute,
