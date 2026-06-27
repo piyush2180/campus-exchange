@@ -47,27 +47,27 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "Turn your steps into investments with Coin Walk, a modern web app for earning virtual coins and trading them in a simulated stock market.",
+          "CampusExchange is an AI-powered financial wellness and virtual trading platform bridging physical health check-ins with simulated asset markets.",
       },
       {
         property: "og:description",
         content:
-          "Turn your steps into investments with Coin Walk, a modern web app for earning virtual coins and trading them in a simulated stock market.",
+          "CampusExchange is an AI-powered financial wellness and virtual trading platform bridging physical health check-ins with simulated asset markets.",
       },
       {
         name: "twitter:description",
         content:
-          "Turn your steps into investments with Coin Walk, a modern web app for earning virtual coins and trading them in a simulated stock market.",
+          "CampusExchange is an AI-powered financial wellness and virtual trading platform bridging physical health check-ins with simulated asset markets.",
       },
       {
         property: "og:image",
         content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6b936d7f-9cf4-444c-9ec3-7ef16fb3a424/id-preview-f97bf261--431ab2f2-83bf-4a86-b967-61f628eb9183.lovable.app-1776624378586.png",
+          "https://campus-exchange-ashy.vercel.app/og-image.png",
       },
       {
         name: "twitter:image",
         content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6b936d7f-9cf4-444c-9ec3-7ef16fb3a424/id-preview-f97bf261--431ab2f2-83bf-4a86-b967-61f628eb9183.lovable.app-1776624378586.png",
+          "https://campus-exchange-ashy.vercel.app/og-image.png",
       },
     ],
     links: [

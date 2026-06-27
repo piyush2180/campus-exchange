@@ -24,7 +24,7 @@
 
 ## Live Demo
 
-🚀 **Application Preview & Deployment**: [https://campus-exchange.vercel.app](https://campus-exchange.vercel.app) *(Placeholder)*
+🚀 **Application Preview & Live Deployment**: [https://campus-exchange-ashy.vercel.app](https://campus-exchange-ashy.vercel.app)
 
 ---
 
@@ -136,21 +136,28 @@ graph TD
 
 ```
 campus-exchange/
+├── scripts/              # Build & deployment helper scripts (sync-vercel.js)
 ├── src/
 │   ├── components/       # Global UI components (Navbar, Footer, Shadcn primitives)
-│   ├── features/         # Feature-bound modules
+│   ├── constants/        # Application constants and configuration defaults
+│   ├── features/         # Feature-bound UI modules
 │   │   ├── bets/         # Market, Goal, and Duel wager components
 │   │   ├── copilot/      # Pulse AI panel, rich cards, mini-charts, summarizers
 │   │   ├── dashboard/    # Daily telemetry stat cards and check-in forms
 │   │   ├── leaderboard/  # Podium and global ranking tables
 │   │   ├── market/       # Simulated asset exchange lists and pulse cards
 │   │   ├── portfolio/    # Asset allocation bars and holdings tables
+│   │   ├── profile/      # User profile cards and activity grids
 │   │   └── wellness/     # Health history tables, benchmark charts, dashboards
-│   ├── hooks/            # Custom hooks (useApp, usePortfolio, useWellness, useMarket)
-│   ├── routes/           # TanStack file-based routing tree (`/app/*`)
-│   ├── services/         # API services and business logic
-│   │   └── copilot/      # RAG retriever, intent router, prompt builder, knowledge base
+│   ├── hooks/            # Custom React hooks (useApp, usePortfolio, useWellness, useMarket)
+│   ├── integrations/     # Supabase client instances, middleware, and TypeScript definitions
+│   ├── lib/              # Shared utilities and store helpers
+│   ├── routes/           # TanStack file-based routing tree (`/app/*`, `/app/ai-architecture`)
+│   ├── schemas/          # Zod validation schemas for forms and check-ins
+│   ├── services/         # API services and business logic (trading, wellness, bets)
+│   │   └── copilot/      # RAG retriever, intent router, prompt builder, server functions
 │   └── types/            # TypeScript interface declarations
+├── supabase/             # Supabase database migrations and project config
 ├── public/               # Static web assets
 └── docs/                 # Screenshots and architectural documentation
 ```
