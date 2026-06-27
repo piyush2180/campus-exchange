@@ -1,6 +1,7 @@
 import { classifyIntent } from "./intentClassifier";
 import { retrieveContext } from "./retriever";
 import { buildGroundedPrompt, type Message } from "./promptBuilder";
+import { fetchGeminiResponse } from "./copilot.server";
 import type { AppState } from "@/types";
 
 export type StreamChunkHandler = (chunk: {
@@ -17,7 +18,7 @@ export type StreamChunkHandler = (chunk: {
 }) => void;
 
 /**
- * Core Copilot service orchestrating grounded prompt construction, streaming responses, and rich card telemetry.
+ * Core Copilot service orchestrating grounded prompt construction, server-side AI invocation, and rich card telemetry.
  */
 export async function streamCopilotResponse(
   query: string,
@@ -66,11 +67,7 @@ export async function streamCopilotResponse(
 
   if (q.includes("portfolio") || activeRoute.includes("portfolio")) {
     quickActions.push({ label: "View Portfolio", route: "/app/portfolio" });
-    suggestions.push(
-      "Show portfolio allocation",
-      "Explain diversification",
-      "Which asset performs best?",
-    );
+    suggestions.push("Show portfolio allocation", "Explain diversification", "Which asset performs best?");
   } else if (q.includes("wellness") || activeRoute.includes("history")) {
     quickActions.push({ label: "Go to Wellness", route: "/app/history" });
     suggestions.push("Summarize my habits", "Improve activity score", "Explain milestone bonuses");
@@ -82,23 +79,16 @@ export async function streamCopilotResponse(
     suggestions.push("Explain this asset", "Market overview", "Is this volatile?");
   } else {
     quickActions.push({ label: "Explore Market", route: "/app/market" });
-    suggestions.push(
-      "Why is my portfolio losing value?",
-      "Summarize my wellness habits",
-      "Explain Activity Score",
-    );
+    suggestions.push("Why is my portfolio losing value?", "Summarize my wellness habits", "Explain Activity Score");
   }
 
   // Handle Greetings directly
   if (intent === "Greeting") {
-    let text =
-      "Hi! 👋 I'm Pulse AI, your CampusExchange assistant.\n\nI can help you understand your portfolio, wellness progress, trading activity, betting history, and explain how CampusExchange works. What would you like to explore today?";
+    let text = "Hi! 👋 I'm Pulse AI, your CampusExchange assistant.\n\nI can help you understand your portfolio, wellness progress, trading activity, betting history, and explain how CampusExchange works. What would you like to explore today?";
     if (q.includes("thanks") || q.includes("thank you")) {
-      text =
-        "You're welcome! Let me know if you'd like to review your portfolio, summarize your wellness progress, or understand your market performance.";
+      text = "You're welcome! Let me know if you'd like to review your portfolio, summarize your wellness progress, or understand your market performance.";
     } else if (q.includes("who are you") || q.includes("what can you do")) {
-      text =
-        "I'm Pulse AI, your CampusExchange assistant.\n\nI analyze your live account data alongside the platform knowledge base to answer questions about your investments, wellness habits, bets, and application features.";
+      text = "I'm Pulse AI, your CampusExchange assistant.\n\nI analyze your live account data alongside the platform knowledge base to answer questions about your investments, wellness habits, bets, and application features.";
     } else if (q.includes("bye")) {
       text = "Goodbye! Keep hitting your daily wellness goals and happy investing! 🚀";
     }
@@ -119,8 +109,7 @@ export async function streamCopilotResponse(
 
   // Handle Out of Domain queries politely
   if (intent === "OutOfDomain") {
-    const text =
-      "I'm designed specifically to help with CampusExchange. I can analyze your portfolio, wellness metrics, trading history, and betting activity, or explain platform features. How can I help with your campus exchange account?";
+    const text = "I'm designed specifically to help with CampusExchange. I can analyze your portfolio, wellness metrics, trading history, and betting activity, or explain platform features. How can I help with your campus exchange account?";
     const words = text.split(" ");
     for (let i = 0; i < words.length; i++) {
       onChunk({
@@ -147,12 +136,7 @@ export async function streamCopilotResponse(
   let miniChart: Message["miniChart"];
   let timeline: Message["timeline"];
 
-  if (
-    q.includes("portfolio") ||
-    q.includes("holding") ||
-    q.includes("pnl") ||
-    q.includes("breakdown")
-  ) {
+  if (q.includes("portfolio") || q.includes("holding") || q.includes("pnl") || q.includes("breakdown")) {
     let bestAsset = "None";
     let worstAsset = "None";
     let maxPnl = -Infinity;
@@ -221,76 +205,30 @@ export async function streamCopilotResponse(
     ];
   }
 
-  const apiKey =
-    import.meta.env.VITE_GEMINI_API_KEY ||
-    (typeof process !== "undefined" ? process.env.VITE_GEMINI_API_KEY : undefined);
-
-  let streamedTokens = false;
-
-  // If Gemini API Key is present, stream using Gemini REST API
-  if (apiKey) {
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-          }),
-        },
-      );
-
-      if (!response.ok || !response.body) {
-        throw new Error(`Gemini API returned status ${response.status}`);
+  // Execute Gemini via Secure TanStack Start Server Function
+  try {
+    const serverResult = await fetchGeminiResponse({ data: { prompt } });
+    if (serverResult?.text) {
+      const words = serverResult.text.split(" ");
+      for (let i = 0; i < words.length; i++) {
+        const textDelta = (i === 0 ? "" : " ") + words[i];
+        onChunk({
+          textDelta,
+          sources: context.sources,
+          confidence,
+          richCard,
+          miniChart,
+          timeline,
+          quickActions,
+          suggestions,
+        });
+        await new Promise((r) => setTimeout(r, 12));
       }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const jsonStr = line.replace("data: ", "").trim();
-            if (jsonStr === "[DONE]") continue;
-            try {
-              const data = JSON.parse(jsonStr);
-              const candidate = data.candidates?.[0];
-              const textDelta = candidate?.content?.parts?.[0]?.text ?? "";
-              if (textDelta) {
-                streamedTokens = true;
-                onChunk({
-                  textDelta,
-                  sources: context.sources,
-                  confidence,
-                  richCard,
-                  miniChart,
-                  timeline,
-                  quickActions,
-                  suggestions,
-                });
-              }
-            } catch {
-              // Ignore partial JSON parse errors during streaming
-            }
-          }
-        }
-      }
-      if (streamedTokens) {
-        onChunk({ textDelta: "", isDone: true });
-        return;
-      }
-    } catch (err) {
-      console.warn("Gemini API streaming error, falling back to local grounded synthesis:", err);
+      onChunk({ textDelta: "", isDone: true });
+      return;
     }
+  } catch (err) {
+    console.warn("Secure Gemini server call error, falling back to local grounded synthesis:", err);
   }
 
   // Local grounded synthesis fallback
@@ -322,12 +260,7 @@ function generateLocalGroundedResponse(
   const profile = appState.profile;
   const holdings = appState.holdings;
 
-  if (
-    q.includes("portfolio") ||
-    q.includes("losing") ||
-    q.includes("value") ||
-    q.includes("holding")
-  ) {
+  if (q.includes("portfolio") || q.includes("losing") || q.includes("value") || q.includes("holding")) {
     if (holdings.length === 0) {
       return "### Portfolio Grounded Analysis\nYou currently have no active investments in your portfolio.\n\n**Reason / Why:**\nYour coin balance is preserved in cash. Complete your daily wellness check-ins on the Dashboard to earn base coins and buy your first asset index!";
     }
@@ -345,7 +278,7 @@ function generateLocalGroundedResponse(
     const doc = context.knowledgeDocs?.find((d: any) => d.id === "activity-score");
     return (
       (doc?.content ??
-        "The Activity Score measures your daily health metrics across Steps (max 40pts), Sleep (max 20pts), Water (max 20pts), and Workouts (20pts).") +
+      "The Activity Score measures your daily health metrics across Steps (max 40pts), Sleep (max 20pts), Water (max 20pts), and Workouts (20pts).") +
       "\n\n**Reason / Why:**\nDaily wellness telemetry directly calculates your base coin earnings each day."
     );
   }
