@@ -32,14 +32,14 @@
 
 | View | Screenshot |
 | :--- | :--- |
-| **Dashboard** | ![Dashboard Overview](https://raw.githubusercontent.com/piyush2180/campus-exchange/main/docs/screenshots/dashboard.png) |
-| **Portfolio Management** | ![Portfolio View](https://raw.githubusercontent.com/piyush2180/campus-exchange/main/docs/screenshots/portfolio.png) |
-| **Wellness Telemetry** | ![Wellness Tracking](https://raw.githubusercontent.com/piyush2180/campus-exchange/main/docs/screenshots/wellness.png) |
-| **Simulated Market** | ![Trading Market](https://raw.githubusercontent.com/piyush2180/campus-exchange/main/docs/screenshots/market.png) |
-| **Prediction Markets & Duels** | ![Prediction Bets](https://raw.githubusercontent.com/piyush2180/campus-exchange/main/docs/screenshots/bets.png) |
-| **Campus Leaderboard** | ![Leaderboard Ranking](https://raw.githubusercontent.com/piyush2180/campus-exchange/main/docs/screenshots/leaderboard.png) |
-| **Pulse AI Copilot** | ![Pulse AI Assistant](https://raw.githubusercontent.com/piyush2180/campus-exchange/main/docs/screenshots/pulse-ai.png) |
-| **Weekly Health Report** | ![Weekly Report](https://raw.githubusercontent.com/piyush2180/campus-exchange/main/docs/screenshots/weekly-report.png) |
+| **Dashboard** | ![Dashboard Overview](./docs/screenshots/dashboard.jpg) |
+| **Portfolio Management** | ![Portfolio View](./docs/screenshots/portfolio.jpg) |
+| **Wellness Telemetry** | ![Wellness Tracking](./docs/screenshots/wellness.jpg) |
+| **Simulated Market** | ![Trading Market](./docs/screenshots/market.jpg) |
+| **Prediction Markets & Duels** | ![Prediction Bets](./docs/screenshots/bets.jpg) |
+| **Campus Leaderboard** | ![Leaderboard Ranking](./docs/screenshots/leaderboard.jpg) |
+| **Pulse AI Copilot** | ![Pulse AI Assistant](./docs/screenshots/pulse-ai.jpg) |
+| **Weekly Health Report** | ![Weekly Report](./docs/screenshots/weekly-report.jpg) |
 
 ---
 
