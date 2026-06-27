@@ -61,8 +61,9 @@
 * **Goal Wagers**: Wager wellness coins on hitting target step milestones before midnight for a 2.0x payout.
 * **Step Duels**: Head-to-head 24-hour step battles challenging peers for the combined coin pot.
 
-### 🧠 Pulse AI Copilot (SQL-First Hybrid RAG)
-* **Grounded RAG Engine**: Combines real-time PostgreSQL database telemetry with internal knowledge bases to prevent hallucinations.
+### 🧠 Pulse AI Copilot (SQL-Grounded AI Generation)
+* **SQL-Grounded Context Engine**: Queries live PostgreSQL database telemetry and platform knowledge bases directly to feed exact context into Gemini 2.5 Flash, guaranteeing zero hallucinations on financial numbers.
+* **Modular Architecture for Phase 2B pgvector**: Designed with pluggable retrieval interfaces in `retriever.ts` ready to incorporate pgvector semantic document search in Phase 2B.
 * **Page & Context Awareness**: Automatically interprets user queries like *"Explain this"* based on the active route and view state.
 * **Universal Page Summaries (`✨ AI Summary`)**: One-click inline cards analyzing portfolio concentration, habit trends, and market volatility.
 * **Navigation Automation**: Interprets natural language commands like *"Take me to my portfolio"* and executes client-side routing.

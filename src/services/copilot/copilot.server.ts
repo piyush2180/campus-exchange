@@ -10,7 +10,6 @@ export const fetchGeminiResponse = createServerFn({ method: "POST" }).handler(
     const prompt = ctx?.data?.prompt ?? ctx?.prompt ?? "";
     const apiKey =
       process.env.GEMINI_API_KEY ||
-      process.env.VITE_GEMINI_API_KEY ||
       (typeof process !== "undefined" ? process.env.GEMINI_API_KEY : undefined);
 
     if (!apiKey) {
