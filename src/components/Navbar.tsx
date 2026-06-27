@@ -2,8 +2,14 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { Footprints, LogOut, User } from "lucide-react";
 import { useApp } from "@/hooks/useApp";
 import { Button } from "@/components/ui/button";
+import { CopilotTrigger } from "@/features/copilot/CopilotTrigger";
 
-export function Navbar() {
+interface NavbarProps {
+  isCopilotOpen?: boolean;
+  onToggleCopilot?: () => void;
+}
+
+export function Navbar({ isCopilotOpen = false, onToggleCopilot }: NavbarProps) {
   const { state, logout } = useApp();
   const { location } = useRouterState();
   const navigate = useNavigate();
@@ -80,6 +86,9 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {state.user ? (
             <>
+              {onApp && onToggleCopilot && (
+                <CopilotTrigger isOpen={isCopilotOpen} onToggle={onToggleCopilot} />
+              )}
               <Link
                 to="/app/profile"
                 className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 transition-colors hover:bg-muted sm:flex"

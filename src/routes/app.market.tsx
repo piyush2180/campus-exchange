@@ -5,6 +5,7 @@ import { useMarket } from "@/hooks/useMarket";
 import { toast } from "sonner";
 import { MarketPulseCards } from "@/features/market/MarketPulseCards";
 import { AssetList } from "@/features/market/AssetList";
+import { PageAISummarizer } from "@/features/copilot/PageAISummarizer";
 
 export const Route = createFileRoute("/app/market")({
   head: () => ({ meta: [{ title: "Market — Campus Exchange" }] }),
@@ -47,11 +48,7 @@ function Market() {
             Simulated indices for skills, fitness, and habits. Prices update every 5 seconds.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm">
-          <Coins className="h-4 w-4 text-[color:var(--brand)]" />
-          <span className="font-semibold tabular-nums">{coins.toFixed(2)}</span>
-          <span className="text-muted-foreground">coins</span>
-        </div>
+        <PageAISummarizer pageName="Market" routePath="/app/market" />
       </header>
 
       <MarketPulseCards

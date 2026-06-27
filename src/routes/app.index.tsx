@@ -10,6 +10,8 @@ import confetti from "canvas-confetti";
 import { DashboardStatCard } from "@/features/dashboard/DashboardStatCard";
 import { WellnessCheckInCard } from "@/features/dashboard/WellnessCheckInCard";
 import { TopLeaderboardWidget } from "@/features/dashboard/TopLeaderboardWidget";
+import { AIInsightsWidget } from "@/features/copilot/AIInsightsWidget";
+import { PageAISummarizer } from "@/features/copilot/PageAISummarizer";
 import { fetchTopLeaderboard, type LeaderboardEntry } from "@/services/leaderboard.service";
 import { wellnessCheckInSchema } from "@/schemas";
 
@@ -125,6 +127,7 @@ function Dashboard() {
             Your daily summary
           </h1>
         </div>
+        <PageAISummarizer pageName="Dashboard" routePath="/app" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -187,6 +190,8 @@ function Dashboard() {
         submitting={submitting}
         handleCheckInSubmit={handleCheckInSubmit}
       />
+
+      <AIInsightsWidget />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="surface-card overflow-hidden lg:col-span-2">

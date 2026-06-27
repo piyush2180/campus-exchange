@@ -10,6 +10,7 @@ import { MarketBetsTab } from "@/features/bets/MarketBetsTab";
 import { GoalBetsTab } from "@/features/bets/GoalBetsTab";
 import { DuelBetsTab } from "@/features/bets/DuelBetsTab";
 import { ActiveBetsList } from "@/features/bets/ActiveBetsList";
+import { PageAISummarizer } from "@/features/copilot/PageAISummarizer";
 
 export const Route = createFileRoute("/app/bets")({
   head: () => ({
@@ -101,11 +102,7 @@ function BetsPage() {
             Wager your coins on market moves, daily step goals, or head-to-head step duels.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm">
-          <Coins className="h-4 w-4 text-[color:var(--brand)]" />
-          <span className="font-semibold tabular-nums">{state.profile.coins.toFixed(2)}</span>
-          <span className="text-muted-foreground">coins</span>
-        </div>
+        <PageAISummarizer pageName="Bets" routePath="/app/bets" />
       </header>
 
       <Tabs defaultValue="market" className="w-full">

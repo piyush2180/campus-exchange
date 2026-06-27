@@ -9,6 +9,7 @@ import { WellnessStatsOverview } from "@/features/wellness/WellnessStatsOverview
 import { WellnessHistoryTable } from "@/features/wellness/WellnessHistoryTable";
 import { WellnessChartsSection } from "@/features/wellness/WellnessChartsSection";
 import { WellnessStatsDashboard } from "@/features/wellness/WellnessStatsDashboard";
+import { PageAISummarizer } from "@/features/copilot/PageAISummarizer";
 
 export const Route = createFileRoute("/app/history")({
   head: () => ({
@@ -138,8 +139,9 @@ function HistoryPage() {
             Wellness Journey
           </div>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight md:text-4xl">
-            History &amp; Analytics
+            Check-in logs &amp; analytics
           </h1>
+          <PageAISummarizer pageName="Wellness" routePath="/app/history" />
           <p className="mt-1.5 text-sm text-muted-foreground">
             Analyze your wellness score trends, stats benchmarks, and habits consistency.
           </p>
