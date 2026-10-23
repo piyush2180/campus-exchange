@@ -6,6 +6,12 @@ export type Bet = Database["public"]["Tables"]["bets"]["Row"] & {
   direction: "up" | "down" | null;
   status: "pending" | "won" | "lost" | "cancelled";
 };
+export type AssetMovement = Database["public"]["Tables"]["asset_movements"]["Row"] & {
+  movement_type: "buy" | "sell";
+};
+export type AppNotification = Database["public"]["Tables"]["notifications"]["Row"] & {
+  kind: "trade" | "bet" | "duel" | "wellness";
+};
 export type Profile = {
   id: string;
   display_name: string;

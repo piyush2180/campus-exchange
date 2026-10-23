@@ -61,9 +61,15 @@
 * **Goal Wagers**: Wager wellness coins on hitting target step milestones before midnight for a 2.0x payout.
 * **Step Duels**: Head-to-head 24-hour step battles challenging peers for the combined coin pot.
 
+### ⚡ Real-Time Sync, Asset Movement Logs & Notifications
+* **Real-Time State Synchronization**: Supabase Realtime (`postgres_changes`) streams profile, holdings, bet and notification changes to every open tab and device. Subscriptions are filtered per user on the server and gated by Row Level Security.
+* **Asset Movement Logs**: Every buy and sell is recorded in an `asset_movements` table (shares, execution price, coin delta, position after the trade) and shown as a live log on the Portfolio page.
+* **Operational Status Updates**: Postgres triggers watch trades, bet and duel status changes (`pending` to `won` / `lost`), duel challenges and wellness check-ins, and write a status update for each one into a `notifications` table.
+* **Dashboard Notifications**: A notification bell in the app header shows those updates live with an unread badge and a mark-all-read action.
+
 ### 🧠 Pulse AI Copilot (SQL-Grounded AI Generation)
-* **SQL-Grounded Context Engine**: Queries live PostgreSQL database telemetry and platform knowledge bases directly to feed exact context into Gemini 2.5 Flash, guaranteeing zero hallucinations on financial numbers.
-* **Modular Architecture for Phase 2B pgvector**: Designed with pluggable retrieval interfaces in `retriever.ts` ready to incorporate pgvector semantic document search in Phase 2B.
+* **SQL-Grounded Context Engine**: Queries live PostgreSQL data (holdings, wellness logs, bets, asset movements) and injects it as structured JSON context into Gemini 2.5 Flash, so answers about the user's numbers come from the database.
+* **pgvector Semantic Retrieval**: Platform guides are embedded with Gemini `gemini-embedding-001` (768 dimensions) and stored in a `knowledge_docs` table with an HNSW index. Each question is embedded server-side and matched by cosine similarity through the `match_knowledge_docs` SQL function, with keyword matching as a fallback.
 * **Page & Context Awareness**: Automatically interprets user queries like *"Explain this"* based on the active route and view state.
 * **Universal Page Summaries (`✨ AI Summary`)**: One-click inline cards analyzing portfolio concentration, habit trends, and market volatility.
 * **Navigation Automation**: Interprets natural language commands like *"Take me to my portfolio"* and executes client-side routing.
@@ -83,7 +89,8 @@ graph TD
     PulseAI[Pulse AI Engine]
 
     Client <-->|Row Level Security / Auth| Supabase
-    Supabase <-->|Relational SQL Queries| DB
+    Supabase -->|Realtime postgres_changes| Client
+    Supabase <-->|Relational SQL Queries + pgvector| DB
     Client <-->|State / Route Telemetry| PulseAI
     PulseAI <-->|SQL Data + Knowledge Context| Gemini
     PulseAI -->|Streamed Markdown / Navigation Actions| Client
@@ -100,7 +107,8 @@ graph TD
     IntentClassifier -->|Greeting / OutOfDomain| InstantResponse[Instant Response Handler]
     
     DualRetriever -->|SQL Telemetry| SQLStore[(PostgreSQL Database)]
-    DualRetriever -->|Platform Guides| KnowledgeStore[(Knowledge Base)]
+    DualRetriever -->|Query Embedding| Embedder[Gemini Embeddings]
+    Embedder -->|Cosine Similarity| KnowledgeStore[(pgvector knowledge_docs)]
     
     SQLStore --> GroundedPromptBuilder[Grounded Prompt Builder]
     KnowledgeStore --> GroundedPromptBuilder
@@ -109,11 +117,6 @@ graph TD
     GeminiLLM --> StreamEngine[Token Streaming & Fallback Engine]
     StreamEngine --> RichCardParser[Rich Card & Action Parser]
     RichCardParser --> UI[Copilot Drawer / UI Overlay]
-
-    subgraph Phase 2B Future Hook
-        pgvector[(pgvector Semantic Embeddings)]
-    end
-    DualRetriever -.->|Planned Expansion| pgvector
 ```
 
 ---
@@ -186,10 +189,21 @@ Create a `.env` file in the root directory:
 ```env
 VITE_SUPABASE_URL="https://your-supabase-project.supabase.co"
 VITE_SUPABASE_PUBLISHABLE_KEY="your-supabase-publishable-key"
-VITE_GEMINI_API_KEY="your-google-gemini-api-key"
+GEMINI_API_KEY="your-google-gemini-api-key"
+# Only needed by the knowledge base embedding script, never exposed to the client
+SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
 ```
 
-### 5. Start Development Server
+### 5. Apply Database Migrations
+Apply everything in `supabase/migrations` (for example with `supabase db push`). This enables `pgvector`, creates the knowledge base, asset movement and notification tables with their triggers, and adds the tables to the Supabase Realtime publication.
+
+### 6. Embed the Knowledge Base
+```bash
+npm run embed:knowledge
+```
+Run this again whenever `src/services/copilot/knowledgeBase.ts` changes.
+
+### 7. Start Development Server
 ```bash
 npm run dev
 ```
@@ -201,7 +215,8 @@ Open your browser and navigate to `http://localhost:3000`.
 
 * **SQL-First Grounding**: Financial holdings, wallet balances, and health logs are queried directly from PostgreSQL to guarantee zero hallucination on user telemetry.
 * **Resilient Stream Fallback**: Features a local grounded synthesis fallback engine so users receive immediate, accurate responses even if external LLM API rates are exceeded.
-* **Extensible Vector Architecture**: Built with pluggable retrieval interfaces prepared for Phase 2B pgvector semantic document retrieval.
+* **Hybrid Retrieval**: Exact SQL for user numbers, pgvector semantic search for platform knowledge. Numbers are never retrieved from lossy embeddings.
+* **Database-Driven Status Updates**: Notifications are written by `SECURITY DEFINER` triggers, so every trade, bet result and check-in produces a status update without extra client code.
 * **Type-Safe Full-Stack Design**: Strict TypeScript contracts spanning Supabase schemas, TanStack routes, and component interfaces.
 
 ---
@@ -214,8 +229,8 @@ Open your browser and navigate to `http://localhost:3000`.
 - [x] 60s Market Predictions & Step Duels
 - [x] Pulse AI Copilot with Grounded SQL Retrieval
 - [x] Universal Page AI Summaries & Navigation Actions
-- [ ] Phase 2B: pgvector Semantic Embedding Retrieval
-- [ ] Real-Time WebSockets for Peer Step Duels
+- [x] pgvector Semantic Embedding Retrieval
+- [x] Real-Time Sync, Asset Movement Logs & Dashboard Notifications
 - [ ] Native Mobile App (React Native / Expo)
 
 ---

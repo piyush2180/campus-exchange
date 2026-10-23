@@ -47,8 +47,8 @@ function AIArchitectureShowcase() {
             </span>
             <p className="text-sm font-semibold">SQL & Knowledge Matcher</p>
             <p className="text-xs text-muted-foreground">
-              Queries structured Supabase SQL database for live holdings/logs + matches platform
-              guides (Phase 2B pgvector hook).
+              Queries structured Supabase SQL database for live holdings/logs + ranks platform
+              guides by pgvector cosine similarity.
             </p>
           </div>
 
@@ -93,12 +93,14 @@ function AIArchitectureShowcase() {
         <div className="surface-card p-6 space-y-3">
           <div className="flex items-center gap-2 text-foreground font-bold text-base">
             <Server className="h-5 w-5 text-purple-400" />
-            Phase 2B Pluggable Vector Hooks
+            pgvector Semantic Retrieval
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            The retrieval interface in <code className="text-foreground">retriever.ts</code> is
-            structured with modular interfaces. Adding Gemini Embeddings and pgvector semantic
-            similarity in Phase 2B requires zero modifications to prompt engineering or UI code.
+            Platform guides are embedded with Gemini (768 dimensions) and stored in a pgvector{" "}
+            <code className="text-foreground">knowledge_docs</code> table. Each question is embedded
+            server-side and matched with the{" "}
+            <code className="text-foreground">match_knowledge_docs</code> cosine-similarity
+            function, falling back to keyword matching if embeddings are unavailable.
           </p>
         </div>
       </div>

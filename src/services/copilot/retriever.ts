@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { KNOWLEDGE_BASE_DOCS, type KnowledgeDoc } from "./knowledgeBase";
+import { embedQuery } from "./copilot.server";
 import type { AppState } from "@/types";
 
 export type RetrievedContext = {
@@ -115,6 +116,36 @@ export async function retrieveContext(
     }
 
     if (
+      q.includes("trade") ||
+      q.includes("bought") ||
+      q.includes("sold") ||
+      q.includes("movement") ||
+      q.includes("activity") ||
+      q.includes("timeline") ||
+      q.includes("what happened")
+    ) {
+      sources.add("Asset Movements");
+      const { data: movements } = await supabase
+        .from("asset_movements")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (movements && movements.length > 0) {
+        sqlData.recentAssetMovements = movements.map((m) => ({
+          at: m.created_at,
+          type: m.movement_type,
+          asset: m.asset_id.toUpperCase(),
+          shares: m.shares,
+          price: m.price,
+          coinsDelta: m.coins_delta,
+          sharesAfter: m.shares_after,
+        }));
+      }
+    }
+
+    if (
       q.includes("leaderboard") ||
       q.includes("rank") ||
       q.includes("mover") ||
@@ -124,18 +155,18 @@ export async function retrieveContext(
     }
   }
 
-  // 2. Knowledge Base Matching
-  const matchedDocs = KNOWLEDGE_BASE_DOCS.filter((doc) => {
-    const titleMatch = doc.title
-      .toLowerCase()
-      .split(" ")
-      .some((w) => w.length > 3 && q.includes(w));
-    const tagMatch = doc.tags.some((t) => q.includes(t));
-    return titleMatch || tagMatch;
-  });
+  // 2. Knowledge Base: pgvector semantic search, keyword matching if embeddings are unavailable
+  let matchedDocs: KnowledgeDoc[] = [];
+  try {
+    matchedDocs = await vectorSearch(query);
+    if (matchedDocs.length > 0) sources.add("Knowledge Base (pgvector)");
+  } catch (err) {
+    console.warn("pgvector search unavailable, falling back to keyword matching:", err);
+  }
 
-  if (matchedDocs.length > 0) {
-    sources.add("Knowledge Base");
+  if (matchedDocs.length === 0) {
+    matchedDocs = keywordSearch(q);
+    if (matchedDocs.length > 0) sources.add("Knowledge Base");
   }
 
   return {
@@ -146,8 +177,33 @@ export async function retrieveContext(
 }
 
 /**
- * Phase 2B Extension Point: Pluggable Vector Semantic Search.
+ * Semantic search: embeds the query with Gemini (server-side) and ranks knowledge_docs
+ * by cosine similarity in Postgres via the match_knowledge_docs pgvector function.
  */
-export async function vectorSearch(_query: string, _topK: number = 3): Promise<KnowledgeDoc[]> {
-  return KNOWLEDGE_BASE_DOCS.slice(0, _topK);
+export async function vectorSearch(query: string, topK: number = 3): Promise<KnowledgeDoc[]> {
+  const { embedding } = await embedQuery({ data: { text: query } });
+  const { data, error } = await supabase.rpc("match_knowledge_docs", {
+    query_embedding: JSON.stringify(embedding),
+    match_count: topK,
+  });
+  if (error) throw error;
+
+  return (data ?? []).map((d) => ({
+    id: d.id,
+    title: d.title,
+    category: d.category as KnowledgeDoc["category"],
+    content: d.content,
+    tags: d.tags,
+  }));
+}
+
+function keywordSearch(q: string): KnowledgeDoc[] {
+  return KNOWLEDGE_BASE_DOCS.filter((doc) => {
+    const titleMatch = doc.title
+      .toLowerCase()
+      .split(" ")
+      .some((w) => w.length > 3 && q.includes(w));
+    const tagMatch = doc.tags.some((t) => q.includes(t));
+    return titleMatch || tagMatch;
+  });
 }

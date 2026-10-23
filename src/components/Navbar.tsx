@@ -3,6 +3,7 @@ import { Footprints, LogOut, User } from "lucide-react";
 import { useApp } from "@/hooks/useApp";
 import { Button } from "@/components/ui/button";
 import { CopilotTrigger } from "@/features/copilot/CopilotTrigger";
+import { NotificationBell } from "@/features/notifications/NotificationBell";
 
 interface NavbarProps {
   isCopilotOpen?: boolean;
@@ -89,6 +90,7 @@ export function Navbar({ isCopilotOpen = false, onToggleCopilot }: NavbarProps) 
               {onApp && onToggleCopilot && (
                 <CopilotTrigger isOpen={isCopilotOpen} onToggle={onToggleCopilot} />
               )}
+              {onApp && <NotificationBell userId={state.user.id} />}
               <Link
                 to="/app/profile"
                 className="hidden items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 transition-colors hover:bg-muted sm:flex"

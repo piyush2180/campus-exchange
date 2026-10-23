@@ -179,12 +179,122 @@ export type Database = {
         };
         Relationships: [];
       };
+      asset_movements: {
+        Row: {
+          asset_id: string;
+          coins_delta: number;
+          created_at: string;
+          id: string;
+          movement_type: string;
+          price: number;
+          shares: number;
+          shares_after: number;
+          user_id: string;
+        };
+        Insert: {
+          asset_id: string;
+          coins_delta: number;
+          created_at?: string;
+          id?: string;
+          movement_type: string;
+          price: number;
+          shares: number;
+          shares_after: number;
+          user_id: string;
+        };
+        Update: {
+          asset_id?: string;
+          coins_delta?: number;
+          created_at?: string;
+          id?: string;
+          movement_type?: string;
+          price?: number;
+          shares?: number;
+          shares_after?: number;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      knowledge_docs: {
+        Row: {
+          category: string;
+          content: string;
+          embedding: string;
+          id: string;
+          tags: string[];
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          category: string;
+          content: string;
+          embedding: string;
+          id: string;
+          tags?: string[];
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          category?: string;
+          content?: string;
+          embedding?: string;
+          id?: string;
+          tags?: string[];
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      notifications: {
+        Row: {
+          body: string;
+          created_at: string;
+          id: string;
+          kind: string;
+          read_at: string | null;
+          title: string;
+          user_id: string;
+        };
+        Insert: {
+          body: string;
+          created_at?: string;
+          id?: string;
+          kind: string;
+          read_at?: string | null;
+          title: string;
+          user_id: string;
+        };
+        Update: {
+          body?: string;
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          read_at?: string | null;
+          title?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      match_knowledge_docs: {
+        Args: {
+          match_count?: number;
+          min_similarity?: number;
+          query_embedding: string;
+        };
+        Returns: {
+          category: string;
+          content: string;
+          id: string;
+          similarity: number;
+          tags: string[];
+          title: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

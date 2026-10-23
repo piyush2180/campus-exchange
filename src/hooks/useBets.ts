@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import type { Asset, Bet } from "@/types";
 import {
   fetchUserBets,
@@ -25,6 +26,27 @@ export function useBets(userId: string | null) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Realtime: bets you placed or duels you were challenged to update live (e.g. settled in another tab)
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`bets-${userId}-${crypto.randomUUID()}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bets", filter: `user_id=eq.${userId}` },
+        refresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bets", filter: `opponent_id=eq.${userId}` },
+        refresh,
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, refresh]);
 
   const placeMarketBet = useCallback(
     async (asset: Asset, direction: "up" | "down", stake: number) => {

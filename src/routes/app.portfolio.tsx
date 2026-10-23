@@ -2,10 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { TrendingUp, Inbox, Coins } from "lucide-react";
 import { useApp } from "@/hooks/useApp";
 import { usePortfolio } from "@/hooks/usePortfolio";
+import { useAssetMovements } from "@/hooks/useAssetMovements";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { AllocationBar } from "@/features/portfolio/AllocationBar";
 import { HoldingsTable } from "@/features/portfolio/HoldingsTable";
+import { AssetMovementLog } from "@/features/portfolio/AssetMovementLog";
 import { PageAISummarizer } from "@/features/copilot/PageAISummarizer";
 
 export const Route = createFileRoute("/app/portfolio")({
@@ -19,6 +21,7 @@ function Portfolio() {
     state.holdings,
     state.assets,
   );
+  const movements = useAssetMovements(state.user?.id ?? null);
 
   const handleSell = async (assetId: string) => {
     const asset = state.assets.find((a) => a.id === assetId);
@@ -80,6 +83,8 @@ function Portfolio() {
           <HoldingsTable rows={rows} onSell={handleSell} />
         </>
       )}
+
+      <AssetMovementLog movements={movements} assets={state.assets} />
     </div>
   );
 }

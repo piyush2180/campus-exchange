@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "embed:knowledge": "node --experimental-strip-types --env-file=.env scripts/embed-knowledge.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

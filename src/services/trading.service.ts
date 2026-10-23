@@ -1,18 +1,21 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Holding, Profile } from "@/types";
+import type { Database } from "@/integrations/supabase/types";
+import type { AssetMovement, Holding, Profile } from "@/types";
+
+export function toProfile(row: Database["public"]["Tables"]["profiles"]["Row"]): Profile {
+  return {
+    id: row.id,
+    display_name: row.display_name,
+    steps_today: row.steps_today,
+    total_steps: row.total_steps,
+    coins: Number(row.coins),
+    last_sync: row.last_sync,
+  };
+}
 
 export async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-
-  if (!data) return null;
-  return {
-    id: data.id,
-    display_name: data.display_name,
-    steps_today: data.steps_today,
-    total_steps: data.total_steps,
-    coins: Number(data.coins),
-    last_sync: data.last_sync,
-  };
+  return data ? toProfile(data) : null;
 }
 
 export async function fetchHoldings(userId: string): Promise<Holding[]> {
@@ -40,6 +43,28 @@ export async function upsertHolding(holding: {
 
 export async function deleteHolding(userId: string, assetId: string) {
   return await supabase.from("holdings").delete().eq("user_id", userId).eq("asset_id", assetId);
+}
+
+export async function fetchAssetMovements(userId: string, limit = 25): Promise<AssetMovement[]> {
+  const { data } = await supabase
+    .from("asset_movements")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data as AssetMovement[]) ?? [];
+}
+
+export async function insertAssetMovement(movement: {
+  user_id: string;
+  asset_id: string;
+  movement_type: "buy" | "sell";
+  shares: number;
+  price: number;
+  coins_delta: number;
+  shares_after: number;
+}) {
+  return await supabase.from("asset_movements").insert(movement);
 }
 
 export async function updateHoldingShares(userId: string, assetId: string, shares: number) {

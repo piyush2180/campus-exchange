@@ -5,6 +5,8 @@ import type { Asset, Holding, Profile, AppUser, AppState } from "@/types";
 import {
   fetchProfile,
   fetchHoldings,
+  toProfile,
+  insertAssetMovement,
   updateProfileCoins,
   upsertHolding,
   deleteHolding,
@@ -78,6 +80,41 @@ export function useApp() {
     setHoldings(hs);
     setLoading(false);
   }
+
+  // Realtime sync: profile and holdings changes from other tabs, devices and components stream in
+  // via Supabase Realtime (postgres_changes, filtered server-side and gated by RLS)
+  const uid = user?.id;
+  useEffect(() => {
+    if (!uid) return;
+    const refetchHoldings = () => fetchHoldings(uid).then(setHoldings);
+    const channel = supabase
+      .channel(`app-state-${uid}-${crypto.randomUUID()}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${uid}` },
+        (payload) => setProfile(toProfile(payload.new as Parameters<typeof toProfile>[0])),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "holdings", filter: `user_id=eq.${uid}` },
+        refetchHoldings,
+      )
+      // DELETE events cannot be filtered, so a full sell is picked up through its movement log row
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "asset_movements",
+          filter: `user_id=eq.${uid}`,
+        },
+        refetchHoldings,
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [uid]);
 
   // Market simulation (client-side)
   useEffect(() => {
@@ -215,6 +252,15 @@ export function useApp() {
             avg_price: newAvg,
           }),
         ]);
+        await insertAssetMovement({
+          user_id: uid,
+          asset_id: asset.id,
+          movement_type: "buy",
+          shares,
+          price: asset.price,
+          coins_delta: -cost,
+          shares_after: newShares,
+        });
         return { ok: true };
       } finally {
         tradingRef.current = false;
@@ -249,6 +295,15 @@ export function useApp() {
         } else {
           await updateHoldingShares(uid, asset.id, remaining);
         }
+        await insertAssetMovement({
+          user_id: uid,
+          asset_id: asset.id,
+          movement_type: "sell",
+          shares,
+          price: asset.price,
+          coins_delta: proceeds,
+          shares_after: remaining,
+        });
         return { ok: true };
       } finally {
         tradingRef.current = false;
