@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { useRouterState, useNavigate, Link } from "@tanstack/react-router";
+import { useRouterState, useNavigate, Link, type LinkProps } from "@tanstack/react-router";
 import {
   Sparkles,
   X,
@@ -96,7 +96,7 @@ export function CopilotPanel({ isOpen, onClose }: CopilotPanelProps) {
 
   // Stage progress indicator animation during streaming
   useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isStreaming) {
       setStageIndex(0);
       interval = setInterval(() => {
@@ -213,7 +213,7 @@ export function CopilotPanel({ isOpen, onClose }: CopilotPanelProps) {
       if (chunk.suggestions) finalSuggestions = chunk.suggestions;
 
       if (chunk.navigateRoute) {
-        navigate({ to: chunk.navigateRoute as any });
+        navigate({ to: chunk.navigateRoute as LinkProps["to"] });
         onClose();
       }
 

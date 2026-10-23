@@ -1,19 +1,20 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { fluctuateAssets, stepsToCoins, STEPS_PER_COIN, seedAssets } from "@/lib/store";
+import { STEPS_PER_COIN, seedAssets } from "@/lib/store";
 import type { Asset, Holding, Profile, AppUser, AppState } from "@/types";
 import {
   fetchProfile,
   fetchHoldings,
+  fetchMarketAssets,
   toProfile,
-  insertAssetMovement,
-  updateProfileCoins,
-  upsertHolding,
-  deleteHolding,
-  updateHoldingShares,
+  tickMarket,
+  tradeAsset,
 } from "@/services/trading.service";
 
 export type { Profile, AppUser, AppState };
+
+// Several components mount useApp at once; only one of them needs to ask the server for a tick
+let lastTickRequest = 0;
 
 export function useApp() {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -116,13 +117,36 @@ export function useApp() {
     };
   }, [uid]);
 
-  // Market simulation (client-side)
+  // Shared market: prices live in market_assets, advance server-side via tick_market() and
+  // stream to every client through Realtime, so all users see the same price at the same time
   useEffect(() => {
+    if (!uid) return;
+    fetchMarketAssets().then((rows) => rows.length && setAssets(rows));
+    const channel = supabase
+      .channel(`market-${crypto.randomUUID()}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "market_assets" },
+        (payload) => {
+          const row = payload.new as Asset;
+          setAssets((prev) =>
+            prev.map((a) =>
+              a.id === row.id ? { ...a, price: Number(row.price), change: Number(row.change) } : a,
+            ),
+          );
+        },
+      )
+      .subscribe();
     const id = window.setInterval(() => {
-      setAssets((prev) => fluctuateAssets(prev));
+      if (Date.now() - lastTickRequest < 4500) return;
+      lastTickRequest = Date.now();
+      tickMarket();
     }, 5000);
-    return () => window.clearInterval(id);
-  }, []);
+    return () => {
+      window.clearInterval(id);
+      supabase.removeChannel(channel);
+    };
+  }, [uid]);
 
   const signUp = useCallback(async (email: string, password: string, name: string) => {
     const redirectUrl = `${window.location.origin}/app`;
@@ -146,171 +170,32 @@ export function useApp() {
     await supabase.auth.signOut();
   }, []);
 
-  // Credit a delta of live steps to the user
-  const addLiveSteps = useCallback(
-    async (delta: number) => {
-      const uid = userIdRef.current;
-      if (!uid || !profile || delta <= 0) return;
-      const newSteps = profile.steps_today + delta;
-      const newTotal = profile.total_steps + delta;
-      const earned = stepsToCoins(newSteps) - stepsToCoins(profile.steps_today);
-      const newCoins = +(profile.coins + earned).toFixed(2);
-      const lastSync = new Date().toISOString();
-      setProfile({
-        ...profile,
-        steps_today: newSteps,
-        total_steps: newTotal,
-        coins: newCoins,
-        last_sync: lastSync,
+  // Trades run in the trade_asset() Postgres function, which checks the balance, locks the rows,
+  // moves coins and shares, and writes the movement log in one transaction
+  const trade = useCallback(async (asset: Asset, side: "buy" | "sell", shares: number) => {
+    if (tradingRef.current) return { ok: false, reason: "Trade in progress" };
+    tradingRef.current = true;
+    try {
+      if (!userIdRef.current) return { ok: false, reason: "Not signed in" };
+      const { data, error } = await tradeAsset(asset.id, side, shares);
+      if (error || !data) return { ok: false, reason: error?.message ?? "Trade failed" };
+      setProfile((prev) => (prev ? { ...prev, coins: data.coins } : prev));
+      setHoldings((prev) => {
+        const without = prev.filter((h) => h.assetId !== asset.id);
+        if (data.shares_after === 0) return without;
+        return [
+          ...without,
+          { assetId: asset.id, shares: data.shares_after, avgPrice: data.avg_price },
+        ];
       });
-      await supabase
-        .from("profiles")
-        .update({
-          steps_today: newSteps,
-          total_steps: newTotal,
-          coins: newCoins,
-          last_sync: lastSync,
-        })
-        .eq("id", uid);
-    },
-    [profile],
-  );
+      return { ok: true, price: data.price };
+    } finally {
+      tradingRef.current = false;
+    }
+  }, []);
 
-  // Adjust coin balance
-  const adjustCoins = useCallback(
-    async (delta: number) => {
-      const uid = userIdRef.current;
-      if (!uid || !profile) return false;
-      const next = +(profile.coins + delta).toFixed(2);
-      if (next < 0) return false;
-      setProfile({ ...profile, coins: next });
-      await updateProfileCoins(uid, next);
-      return true;
-    },
-    [profile],
-  );
-
-  const syncSteps = useCallback(async () => {
-    const uid = userIdRef.current;
-    if (!uid || !profile) return;
-    const added = Math.floor(800 + Math.random() * 2400);
-    const newSteps = profile.steps_today + added;
-    const newTotal = profile.total_steps + added;
-    const earned = stepsToCoins(newSteps) - stepsToCoins(profile.steps_today);
-    const newCoins = +(profile.coins + earned).toFixed(2);
-    const lastSync = new Date().toISOString();
-
-    setProfile({
-      ...profile,
-      steps_today: newSteps,
-      total_steps: newTotal,
-      coins: newCoins,
-      last_sync: lastSync,
-    });
-
-    await supabase
-      .from("profiles")
-      .update({
-        steps_today: newSteps,
-        total_steps: newTotal,
-        coins: newCoins,
-        last_sync: lastSync,
-      })
-      .eq("id", uid);
-  }, [profile]);
-
-  const buy = useCallback(
-    async (asset: Asset, shares = 1) => {
-      if (tradingRef.current) return { ok: false, reason: "Trade in progress" };
-      tradingRef.current = true;
-      try {
-        const uid = userIdRef.current;
-        if (!uid || !profile) return { ok: false, reason: "Not signed in" };
-        const cost = asset.price * shares;
-        if (profile.coins < cost) return { ok: false, reason: "Not enough coins" };
-
-        const existing = holdings.find((h) => h.assetId === asset.id);
-        const newShares = (existing?.shares ?? 0) + shares;
-        const newAvg = existing
-          ? (existing.avgPrice * existing.shares + asset.price * shares) / newShares
-          : asset.price;
-
-        const newCoins = +(profile.coins - cost).toFixed(2);
-
-        setProfile({ ...profile, coins: newCoins });
-        setHoldings((prev) => {
-          const without = prev.filter((h) => h.assetId !== asset.id);
-          return [...without, { assetId: asset.id, shares: newShares, avgPrice: newAvg }];
-        });
-
-        await Promise.all([
-          updateProfileCoins(uid, newCoins),
-          upsertHolding({
-            user_id: uid,
-            asset_id: asset.id,
-            shares: newShares,
-            avg_price: newAvg,
-          }),
-        ]);
-        await insertAssetMovement({
-          user_id: uid,
-          asset_id: asset.id,
-          movement_type: "buy",
-          shares,
-          price: asset.price,
-          coins_delta: -cost,
-          shares_after: newShares,
-        });
-        return { ok: true };
-      } finally {
-        tradingRef.current = false;
-      }
-    },
-    [profile, holdings],
-  );
-
-  const sell = useCallback(
-    async (asset: Asset, shares = 1) => {
-      if (tradingRef.current) return { ok: false };
-      tradingRef.current = true;
-      try {
-        const uid = userIdRef.current;
-        if (!uid || !profile) return { ok: false };
-        const existing = holdings.find((h) => h.assetId === asset.id);
-        if (!existing || existing.shares < shares) return { ok: false };
-
-        const proceeds = asset.price * shares;
-        const remaining = existing.shares - shares;
-        const newCoins = +(profile.coins + proceeds).toFixed(2);
-
-        setProfile({ ...profile, coins: newCoins });
-        setHoldings((prev) => {
-          if (remaining === 0) return prev.filter((h) => h.assetId !== asset.id);
-          return prev.map((h) => (h.assetId === asset.id ? { ...h, shares: remaining } : h));
-        });
-
-        await updateProfileCoins(uid, newCoins);
-        if (remaining === 0) {
-          await deleteHolding(uid, asset.id);
-        } else {
-          await updateHoldingShares(uid, asset.id, remaining);
-        }
-        await insertAssetMovement({
-          user_id: uid,
-          asset_id: asset.id,
-          movement_type: "sell",
-          shares,
-          price: asset.price,
-          coins_delta: proceeds,
-          shares_after: remaining,
-        });
-        return { ok: true };
-      } finally {
-        tradingRef.current = false;
-      }
-    },
-    [profile, holdings],
-  );
+  const buy = useCallback((asset: Asset, shares = 1) => trade(asset, "buy", shares), [trade]);
+  const sell = useCallback((asset: Asset, shares = 1) => trade(asset, "sell", shares), [trade]);
 
   const refresh = useCallback(async () => {
     const uid = userIdRef.current;
@@ -323,9 +208,6 @@ export function useApp() {
     signUp,
     signIn,
     logout,
-    syncSteps,
-    addLiveSteps,
-    adjustCoins,
     buy,
     sell,
     STEPS_PER_COIN,

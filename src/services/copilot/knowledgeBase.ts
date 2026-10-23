@@ -35,7 +35,7 @@ Coin Rewards Calculation:
     title: "Simulated Market & Fluctuation Mechanics",
     category: "trading",
     tags: ["market", "simulation", "assets", "price", "drift", "trading"],
-    content: `CampusExchange features a live simulated market representing Developer and Productivity indices. Prices update automatically every 5 seconds using a random drift algorithm (up to ±4% variation per tick) blended with 40% momentum retention.
+    content: `CampusExchange features a live simulated market representing Developer and Productivity indices. Prices are shared by every user: a Postgres function advances them every 5 seconds using a random drift algorithm (up to ±2% variation per tick) blended with 40% momentum retention, and Supabase Realtime streams each tick to all open clients. Trades settle server-side, so a buy only goes through if your balance covers it at the current price.
 Available Seed Assets:
 - HACK (Hackathon Points): Index of competitive coding events.
 - CODE (Coding Skill Index): Aggregate developer benchmark.

@@ -54,7 +54,9 @@ export const fetchGeminiResponse = createServerFn({ method: "POST" })
       throw new Error(`Gemini Server API returned status ${apiRes.status}`);
     }
 
-    const json = (await apiRes.json()) as any;
+    const json = (await apiRes.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
     const text = json.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     return { text };
   });

@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { calculateActivityScore, calculateCoinsEarned } from "@/lib/store";
 import type { WellnessLog } from "@/types";
-import {
-  fetchWellnessLogs,
-  insertWellnessLog,
-  updateWellnessLog,
-} from "@/services/wellness.service";
+import { fetchWellnessLogs, submitWellnessCheckIn } from "@/services/wellness.service";
 
 export type { WellnessLog };
 
@@ -158,79 +152,35 @@ export function useWellness(userId: string | null, onCoinsUpdated?: () => void) 
       if (!userId) return { ok: false, error: "User not logged in" };
 
       const todayStr = getLocalTodayString();
-
-      const alreadyCheckedIn = logs.some((l) => l.date === todayStr);
-      if (alreadyCheckedIn) {
+      if (logs.some((l) => l.date === todayStr)) {
         return { ok: false, error: "You have already completed your daily check-in today." };
       }
 
-      const activityScore = calculateActivityScore(steps, sleep, water, workout);
-      const nextStreak = currentStreak + 1;
-      const rewards = calculateCoinsEarned(activityScore, nextStreak);
-
       try {
-        const { data: prof, error: profErr } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", userId)
-          .single();
-
-        if (profErr || !prof) throw new Error("Could not find user profile");
-
-        const updatedCoins = +(Number(prof.coins) + rewards.totalCoins).toFixed(2);
-        const updatedTotalSteps = prof.total_steps + steps;
-
-        const [logRes, profileRes] = await Promise.all([
-          insertWellnessLog({
-            user_id: userId,
-            date: todayStr,
-            steps,
-            sleep,
-            water,
-            workout,
-            mood,
-            journal: journal.trim() || null,
-            activity_score: activityScore,
-            coins_earned: rewards.totalCoins,
-          }),
-          supabase
-            .from("profiles")
-            .update({
-              coins: updatedCoins,
-              steps_today: steps,
-              total_steps: updatedTotalSteps,
-              last_sync: new Date().toISOString(),
-            })
-            .eq("id", userId),
-        ]);
-
-        if (logRes.error) throw logRes.error;
-        if (profileRes.error) throw profileRes.error;
-
+        const result = await submitWellnessCheckIn({
+          date: todayStr,
+          steps,
+          sleep,
+          water,
+          workout,
+          mood,
+          journal: journal.trim() || null,
+        });
         await refresh();
         if (onCoinsUpdated) onCoinsUpdated();
-
         return {
           ok: true,
-          activityScore,
-          coinsEarned: rewards.totalCoins,
-          rewards,
+          activityScore: result.activity_score,
+          coinsEarned: result.total_coins,
+          rewards: result,
         };
       } catch (err: unknown) {
         console.error("Error submitting daily wellness check-in:", err);
-        const errorObj = err as { code?: string; message?: string };
-        const isDuplicate =
-          errorObj?.code === "23505" || errorObj?.message?.includes("unique constraint");
-        return {
-          ok: false,
-          error: isDuplicate
-            ? "You have already completed your daily check-in today."
-            : errorObj?.message ||
-              (err instanceof Error ? err.message : "Failed to submit check-in"),
-        };
+        const errorObj = err as { message?: string };
+        return { ok: false, error: errorObj?.message || "Failed to submit check-in" };
       }
     },
-    [userId, logs, currentStreak, refresh, onCoinsUpdated],
+    [userId, logs, refresh, onCoinsUpdated],
   );
 
   const updateCheckIn = useCallback(
@@ -248,70 +198,32 @@ export function useWellness(userId: string | null, onCoinsUpdated?: () => void) 
       const existingLog = logs.find((l) => l.id === logId);
       if (!existingLog) return { ok: false, error: "Log entry not found" };
 
-      const activityScore = calculateActivityScore(steps, sleep, water, workout);
-      const rewards = calculateCoinsEarned(activityScore, currentStreak);
-
       try {
-        const { data: prof, error: profErr } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", userId)
-          .single();
-
-        if (profErr || !prof) throw new Error("Could not find user profile");
-
-        const coinDelta = +(rewards.totalCoins - existingLog.coins_earned).toFixed(2);
-        const stepsDelta = steps - existingLog.steps;
-
-        const updatedCoins = +(Number(prof.coins) + coinDelta).toFixed(2);
-        const updatedTotalSteps = Math.max(0, prof.total_steps + stepsDelta);
-
-        const [logRes, profileRes] = await Promise.all([
-          updateWellnessLog(logId, {
-            steps,
-            sleep,
-            water,
-            workout,
-            mood,
-            journal: journal.trim() || null,
-            activity_score: activityScore,
-            coins_earned: rewards.totalCoins,
-            updated_at: new Date().toISOString(),
-          }),
-          supabase
-            .from("profiles")
-            .update({
-              coins: updatedCoins,
-              steps_today: steps,
-              total_steps: updatedTotalSteps,
-              last_sync: new Date().toISOString(),
-            })
-            .eq("id", userId),
-        ]);
-
-        if (logRes.error) throw logRes.error;
-        if (profileRes.error) throw profileRes.error;
-
+        // Same function as a new check-in: it upserts the day and credits only the coin difference
+        const result = await submitWellnessCheckIn({
+          date: existingLog.date,
+          steps,
+          sleep,
+          water,
+          workout,
+          mood,
+          journal: journal.trim() || null,
+        });
         await refresh();
         if (onCoinsUpdated) onCoinsUpdated();
-
         return {
           ok: true,
-          activityScore,
-          coinsEarned: rewards.totalCoins,
-          coinDelta,
+          activityScore: result.activity_score,
+          coinsEarned: result.total_coins,
+          coinDelta: result.coin_delta,
         };
       } catch (err: unknown) {
         console.error("Error updating daily wellness check-in:", err);
         const errorObj = err as { message?: string };
-        return {
-          ok: false,
-          error:
-            errorObj?.message || (err instanceof Error ? err.message : "Failed to update check-in"),
-        };
+        return { ok: false, error: errorObj?.message || "Failed to update check-in" };
       }
     },
-    [userId, logs, currentStreak, refresh, onCoinsUpdated],
+    [userId, logs, refresh, onCoinsUpdated],
   );
 
   return {

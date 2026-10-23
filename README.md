@@ -53,7 +53,8 @@
 
 ### 📈 Virtual Trading & Market Simulation
 * **Simulated Skill Futures**: Live trading engine supporting asset indices based on developer skills, habit futures, and productivity tickers (`CODE`, `HACK`, `FIT`, `STDY`, `SLP`).
-* **Real-Time Price Drift**: Automated price movement algorithm updating every 5 seconds using momentum retention and random variance.
+* **Shared Real-Time Prices**: Prices live in a `market_assets` table. The `tick_market()` Postgres function advances them every 5 seconds (±2% random drift plus 40% momentum) and Supabase Realtime streams each tick, so every user sees the same price at the same moment.
+* **Server-Side Trade Execution**: Buys and sells go through the `trade_asset()` function, which locks the user's rows, checks the balance at the current server price, moves coins and shares and writes the movement log in one transaction.
 * **Portfolio Analytics**: Live calculation of total portfolio value, cost basis, unrealized Profit & Loss (P&L), and percentage return.
 
 ### 🎲 Prediction Markets & Duels
@@ -67,13 +68,18 @@
 * **Operational Status Updates**: Postgres triggers watch trades, bet and duel status changes (`pending` to `won` / `lost`), duel challenges and wellness check-ins, and write a status update for each one into a `notifications` table.
 * **Dashboard Notifications**: A notification bell in the app header shows those updates live with an unread badge and a mark-all-read action.
 
+### 🔒 Server-Authoritative Economy
+* **No Client-Side Coin Writes**: Column-level grants revoke `INSERT` / `UPDATE` on coins, holdings, bets, wellness logs and movement logs; users can only rename themselves. Every balance change runs inside a `SECURITY DEFINER` Postgres function keyed to `auth.uid()`.
+* **Bets Settled in the Database**: `place_bet()` checks the balance, fixes odds and start values and debits the stake; `resolve_due_bets()` settles due bets against the live price or step counts and pays winners.
+* **Scored Check-Ins**: `submit_wellness_check_in()` validates the inputs, computes the Activity Score, streak and milestone bonus, and credits only the coin difference when a check-in is edited.
+
 ### 🧠 Pulse AI Copilot (SQL-Grounded AI Generation)
 * **SQL-Grounded Context Engine**: Queries live PostgreSQL data (holdings, wellness logs, bets, asset movements) and injects it as structured JSON context into Gemini 2.5 Flash, so answers about the user's numbers come from the database.
 * **pgvector Semantic Retrieval**: Platform guides are embedded with Gemini `gemini-embedding-001` (768 dimensions) and stored in a `knowledge_docs` table with an HNSW index. Each question is embedded server-side and matched by cosine similarity through the `match_knowledge_docs` SQL function, with keyword matching as a fallback.
 * **Page & Context Awareness**: Automatically interprets user queries like *"Explain this"* based on the active route and view state.
 * **Universal Page Summaries (`✨ AI Summary`)**: One-click inline cards analyzing portfolio concentration, habit trends, and market volatility.
 * **Navigation Automation**: Interprets natural language commands like *"Take me to my portfolio"* and executes client-side routing.
-* **Rich Visual Cards & Mini-Charts**: Renders structured summary cards, inline trend charts, confidence badges, and activity timelines directly within conversation threads.
+* **Rich Visual Cards & Mini-Charts**: Renders structured summary cards, step trend charts built from the user's recent `wellness_logs`, confidence badges, and activity timelines built from their `notifications` feed directly within conversation threads.
 * **Report Export**: Generates and exports comprehensive Weekly Health & Financial Reports as downloadable Markdown documents.
 
 ---
@@ -195,7 +201,9 @@ SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
 ```
 
 ### 5. Apply Database Migrations
-Apply everything in `supabase/migrations` (for example with `supabase db push`). This enables `pgvector`, creates the knowledge base, asset movement and notification tables with their triggers, and adds the tables to the Supabase Realtime publication.
+Apply everything in `supabase/migrations` in order (for example with `supabase db push`). `20261023000000_realtime_pgvector_activity.sql` enables `pgvector`, creates the knowledge base, asset movement and notification tables with their triggers, and adds the tables to the Supabase Realtime publication. `20261023010000_server_authoritative_economy.sql` adds the shared `market_assets` table and the trade, bet and check-in functions, and revokes direct client writes to balances.
+
+To check the migrations locally without a Supabase project, run `npm run test:db`. It applies every migration to PGlite (Postgres compiled to WASM) and tests the grants, RLS and economy functions.
 
 ### 6. Embed the Knowledge Base
 ```bash
@@ -216,6 +224,7 @@ Open your browser and navigate to `http://localhost:3000`.
 * **SQL-First Grounding**: Financial holdings, wallet balances, and health logs are queried directly from PostgreSQL to guarantee zero hallucination on user telemetry.
 * **Resilient Stream Fallback**: Features a local grounded synthesis fallback engine so users receive immediate, accurate responses even if external LLM API rates are exceeded.
 * **Hybrid Retrieval**: Exact SQL for user numbers, pgvector semantic search for platform knowledge. Numbers are never retrieved from lossy embeddings.
+* **Server-Authoritative Economy**: Coins only move inside Postgres functions with row locks, so a modified client cannot mint coins, settle its own bets or trade at a fake price. The migrations are tested against a real Postgres engine (PGlite) covering permissions, overspend, payouts, streak bonuses and tick throttling.
 * **Database-Driven Status Updates**: Notifications are written by `SECURITY DEFINER` triggers, so every trade, bet result and check-in produces a status update without extra client code.
 * **Type-Safe Full-Stack Design**: Strict TypeScript contracts spanning Supabase schemas, TanStack routes, and component interfaces.
 
@@ -231,6 +240,7 @@ Open your browser and navigate to `http://localhost:3000`.
 - [x] Universal Page AI Summaries & Navigation Actions
 - [x] pgvector Semantic Embedding Retrieval
 - [x] Real-Time Sync, Asset Movement Logs & Dashboard Notifications
+- [x] Server-Authoritative Trades, Bets & Rewards
 - [ ] Native Mobile App (React Native / Expo)
 
 ---

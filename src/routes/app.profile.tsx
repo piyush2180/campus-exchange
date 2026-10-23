@@ -23,6 +23,7 @@ function Profile() {
   }, [state.profile]);
 
   if (!state.profile || !state.user) return null;
+  const userId = state.user.id;
 
   const handleSave = async () => {
     const validation = profileUpdateSchema.safeParse({ displayName });
@@ -32,7 +33,7 @@ function Profile() {
     }
 
     setSaving(true);
-    const { error } = await updateProfileDisplayName(state.user.id, displayName.trim());
+    const { error } = await updateProfileDisplayName(userId, displayName.trim());
     setSaving(false);
 
     if (error) {

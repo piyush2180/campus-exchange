@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import type { AssetMovement, Holding, Profile } from "@/types";
+import type { Asset, AssetMovement, Holding, Profile } from "@/types";
 
 export function toProfile(row: Database["public"]["Tables"]["profiles"]["Row"]): Profile {
   return {
@@ -28,21 +28,42 @@ export async function fetchHoldings(userId: string): Promise<Holding[]> {
   }));
 }
 
-export async function updateProfileCoins(userId: string, coins: number) {
-  return await supabase.from("profiles").update({ coins }).eq("id", userId);
+export async function fetchMarketAssets(): Promise<Asset[]> {
+  const { data } = await supabase
+    .from("market_assets")
+    .select("*")
+    .order("price", { ascending: false });
+  return (data ?? []).map((a) => ({
+    id: a.id,
+    name: a.name,
+    ticker: a.ticker,
+    description: a.description,
+    price: Number(a.price),
+    change: Number(a.change),
+  }));
 }
 
-export async function upsertHolding(holding: {
-  user_id: string;
-  asset_id: string;
-  shares: number;
-  avg_price: number;
-}) {
-  return await supabase.from("holdings").upsert(holding, { onConflict: "user_id,asset_id" });
+export async function tickMarket() {
+  return await supabase.rpc("tick_market");
 }
 
-export async function deleteHolding(userId: string, assetId: string) {
-  return await supabase.from("holdings").delete().eq("user_id", userId).eq("asset_id", assetId);
+export type TradeResult = { price: number; coins: number; shares_after: number; avg_price: number };
+
+export async function tradeAsset(assetId: string, side: "buy" | "sell", shares: number) {
+  const { data, error } = await supabase.rpc("trade_asset", {
+    p_asset_id: assetId,
+    p_side: side,
+    p_shares: shares,
+  });
+  if (error || !data) return { data: null, error };
+  const r = data as Record<string, number | string>;
+  const result: TradeResult = {
+    price: Number(r.price),
+    coins: Number(r.coins),
+    shares_after: Number(r.shares_after),
+    avg_price: Number(r.avg_price),
+  };
+  return { data: result, error: null };
 }
 
 export async function fetchAssetMovements(userId: string, limit = 25): Promise<AssetMovement[]> {
@@ -53,24 +74,4 @@ export async function fetchAssetMovements(userId: string, limit = 25): Promise<A
     .order("created_at", { ascending: false })
     .limit(limit);
   return (data as AssetMovement[]) ?? [];
-}
-
-export async function insertAssetMovement(movement: {
-  user_id: string;
-  asset_id: string;
-  movement_type: "buy" | "sell";
-  shares: number;
-  price: number;
-  coins_delta: number;
-  shares_after: number;
-}) {
-  return await supabase.from("asset_movements").insert(movement);
-}
-
-export async function updateHoldingShares(userId: string, assetId: string, shares: number) {
-  return await supabase
-    .from("holdings")
-    .update({ shares })
-    .eq("user_id", userId)
-    .eq("asset_id", assetId);
 }

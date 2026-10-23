@@ -4,7 +4,7 @@ import { embedQuery } from "./copilot.server";
 import type { AppState } from "@/types";
 
 export type RetrievedContext = {
-  sqlData: Record<string, any>;
+  sqlData: Record<string, unknown>;
   knowledgeDocs: KnowledgeDoc[];
   sources: string[];
 };
@@ -19,7 +19,7 @@ export async function retrieveContext(
 ): Promise<RetrievedContext> {
   const q = query.toLowerCase();
   const sources: Set<string> = new Set();
-  const sqlData: Record<string, any> = {};
+  const sqlData: Record<string, unknown> = {};
 
   // 1. Relational SQL Retrieval from active AppState and Supabase
   if (appState && userId) {

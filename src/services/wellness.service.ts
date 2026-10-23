@@ -17,8 +17,18 @@ export async function fetchWellnessLogs(userId: string): Promise<WellnessLog[]> 
   }));
 }
 
-export async function insertWellnessLog(log: {
-  user_id: string;
+export type CheckInResult = {
+  activity_score: number;
+  streak: number;
+  base_coins: number;
+  streak_bonus: number;
+  milestone_bonus: number;
+  total_coins: number;
+  coin_delta: number;
+};
+
+// submit_wellness_check_in() scores the day, works out the streak and credits coins server-side
+export async function submitWellnessCheckIn(entry: {
   date: string;
   steps: number;
   sleep: number;
@@ -26,25 +36,17 @@ export async function insertWellnessLog(log: {
   workout: boolean;
   mood: number;
   journal: string | null;
-  activity_score: number;
-  coins_earned: number;
 }) {
-  return await supabase.from("wellness_logs").insert(log);
-}
-
-export async function updateWellnessLog(
-  logId: string,
-  updates: {
-    steps: number;
-    sleep: number;
-    water: number;
-    workout: boolean;
-    mood: number;
-    journal: string | null;
-    activity_score: number;
-    coins_earned: number;
-    updated_at: string;
-  },
-) {
-  return await supabase.from("wellness_logs").update(updates).eq("id", logId);
+  const { data, error } = await supabase.rpc("submit_wellness_check_in", {
+    p_date: entry.date,
+    p_steps: entry.steps,
+    p_sleep: entry.sleep,
+    p_water: entry.water,
+    p_workout: entry.workout,
+    p_mood: entry.mood,
+    p_journal: entry.journal,
+  });
+  if (error) throw error;
+  const r = data as Record<string, number>;
+  return Object.fromEntries(Object.entries(r).map(([k, v]) => [k, Number(v)])) as CheckInResult;
 }

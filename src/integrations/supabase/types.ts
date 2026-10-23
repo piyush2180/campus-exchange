@@ -17,6 +17,7 @@ export type Database = {
           end_price: number | null;
           id: string;
           opponent_id: string | null;
+          opponent_start_steps: number | null;
           payout_multiplier: number;
           resolved_at: string | null;
           resolves_at: string;
@@ -36,6 +37,7 @@ export type Database = {
           end_price?: number | null;
           id?: string;
           opponent_id?: string | null;
+          opponent_start_steps?: number | null;
           payout_multiplier?: number;
           resolved_at?: string | null;
           resolves_at: string;
@@ -55,6 +57,7 @@ export type Database = {
           end_price?: number | null;
           id?: string;
           opponent_id?: string | null;
+          opponent_start_steps?: number | null;
           payout_multiplier?: number;
           resolved_at?: string | null;
           resolves_at?: string;
@@ -245,6 +248,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      market_assets: {
+        Row: {
+          change: number;
+          description: string;
+          id: string;
+          name: string;
+          price: number;
+          ticker: string;
+          updated_at: string;
+        };
+        Insert: {
+          change?: number;
+          description: string;
+          id: string;
+          name: string;
+          price: number;
+          ticker: string;
+          updated_at?: string;
+        };
+        Update: {
+          change?: number;
+          description?: string;
+          id?: string;
+          name?: string;
+          price?: number;
+          ticker?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       notifications: {
         Row: {
           body: string;
@@ -280,6 +313,46 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      calculate_activity_score: {
+        Args: { p_sleep: number; p_steps: number; p_water: number; p_workout: boolean };
+        Returns: number;
+      };
+      place_bet: {
+        Args: {
+          p_asset_id?: string;
+          p_bet_type: string;
+          p_direction?: string;
+          p_opponent_id?: string;
+          p_resolves_at?: string;
+          p_stake: number;
+          p_target_steps?: number;
+        };
+        Returns: Database["public"]["Tables"]["bets"]["Row"];
+      };
+      resolve_due_bets: {
+        Args: Record<PropertyKey, never>;
+        Returns: Database["public"]["Tables"]["bets"]["Row"][];
+      };
+      submit_wellness_check_in: {
+        Args: {
+          p_date: string;
+          p_journal?: string | null;
+          p_mood: number;
+          p_sleep: number;
+          p_steps: number;
+          p_water: number;
+          p_workout: boolean;
+        };
+        Returns: Json;
+      };
+      tick_market: {
+        Args: Record<PropertyKey, never>;
+        Returns: undefined;
+      };
+      trade_asset: {
+        Args: { p_asset_id: string; p_shares: number; p_side: string };
+        Returns: Json;
+      };
       match_knowledge_docs: {
         Args: {
           match_count?: number;
@@ -313,12 +386,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -338,13 +411,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -363,13 +435,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -388,13 +459,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -405,13 +475,12 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }

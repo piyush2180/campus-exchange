@@ -12,50 +12,21 @@ export async function fetchUserBets(userId: string): Promise<Bet[]> {
   return (data as Bet[]) ?? [];
 }
 
-export async function createMarketBet(bet: {
-  user_id: string;
-  bet_type: "market";
-  asset_id: string;
-  direction: "up" | "down";
-  stake: number;
-  payout_multiplier: number;
-  start_price: number;
-  resolves_at: string;
+// place_bet() checks the balance, fixes the odds and start values, and debits the stake server-side
+export async function placeBet(bet: {
+  p_bet_type: "market" | "goal" | "duel";
+  p_stake: number;
+  p_asset_id?: string;
+  p_direction?: "up" | "down";
+  p_target_steps?: number;
+  p_opponent_id?: string;
+  p_resolves_at?: string;
 }) {
-  return await supabase.from("bets").insert(bet).select().single();
+  return await supabase.rpc("place_bet", bet);
 }
 
-export async function createGoalBet(bet: {
-  user_id: string;
-  bet_type: "goal";
-  stake: number;
-  payout_multiplier: number;
-  target_value: number;
-  start_steps: number;
-  resolves_at: string;
-}) {
-  return await supabase.from("bets").insert(bet);
-}
-
-export async function createDuelBet(bet: {
-  user_id: string;
-  bet_type: "duel";
-  stake: number;
-  payout_multiplier: number;
-  opponent_id: string;
-  start_steps: number;
-  resolves_at: string;
-}) {
-  return await supabase.from("bets").insert(bet);
-}
-
-export async function updateBetStatus(betId: string, status: "won" | "lost", endPrice?: number) {
-  return await supabase
-    .from("bets")
-    .update({
-      status,
-      resolved_at: new Date().toISOString(),
-      end_price: endPrice ?? null,
-    })
-    .eq("id", betId);
+// Settles every due bet the signed-in user is part of and pays winners; returns the settled bets
+export async function resolveDueBets() {
+  const { data, error } = await supabase.rpc("resolve_due_bets");
+  return { data: (data as Bet[] | null) ?? [], error };
 }

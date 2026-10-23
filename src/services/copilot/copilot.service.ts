@@ -1,7 +1,9 @@
 import { classifyIntent } from "./intentClassifier";
-import { retrieveContext } from "./retriever";
 import { buildGroundedPrompt, type Message } from "./promptBuilder";
+import { retrieveContext, type RetrievedContext } from "./retriever";
 import { fetchGeminiResponse } from "./copilot.server";
+import { formatDistanceToNow } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 import type { AppState } from "@/types";
 
 export type StreamChunkHandler = (chunk: {
@@ -67,7 +69,11 @@ export async function streamCopilotResponse(
 
   if (q.includes("portfolio") || activeRoute.includes("portfolio")) {
     quickActions.push({ label: "View Portfolio", route: "/app/portfolio" });
-    suggestions.push("Show portfolio allocation", "Explain diversification", "Which asset performs best?");
+    suggestions.push(
+      "Show portfolio allocation",
+      "Explain diversification",
+      "Which asset performs best?",
+    );
   } else if (q.includes("wellness") || activeRoute.includes("history")) {
     quickActions.push({ label: "Go to Wellness", route: "/app/history" });
     suggestions.push("Summarize my habits", "Improve activity score", "Explain milestone bonuses");
@@ -79,16 +85,23 @@ export async function streamCopilotResponse(
     suggestions.push("Explain this asset", "Market overview", "Is this volatile?");
   } else {
     quickActions.push({ label: "Explore Market", route: "/app/market" });
-    suggestions.push("Why is my portfolio losing value?", "Summarize my wellness habits", "Explain Activity Score");
+    suggestions.push(
+      "Why is my portfolio losing value?",
+      "Summarize my wellness habits",
+      "Explain Activity Score",
+    );
   }
 
   // Handle Greetings directly
   if (intent === "Greeting") {
-    let text = "Hi! 👋 I'm Pulse AI, your CampusExchange assistant.\n\nI can help you understand your portfolio, wellness progress, trading activity, betting history, and explain how CampusExchange works. What would you like to explore today?";
+    let text =
+      "Hi! 👋 I'm Pulse AI, your CampusExchange assistant.\n\nI can help you understand your portfolio, wellness progress, trading activity, betting history, and explain how CampusExchange works. What would you like to explore today?";
     if (q.includes("thanks") || q.includes("thank you")) {
-      text = "You're welcome! Let me know if you'd like to review your portfolio, summarize your wellness progress, or understand your market performance.";
+      text =
+        "You're welcome! Let me know if you'd like to review your portfolio, summarize your wellness progress, or understand your market performance.";
     } else if (q.includes("who are you") || q.includes("what can you do")) {
-      text = "I'm Pulse AI, your CampusExchange assistant.\n\nI analyze your live account data alongside the platform knowledge base to answer questions about your investments, wellness habits, bets, and application features.";
+      text =
+        "I'm Pulse AI, your CampusExchange assistant.\n\nI analyze your live account data alongside the platform knowledge base to answer questions about your investments, wellness habits, bets, and application features.";
     } else if (q.includes("bye")) {
       text = "Goodbye! Keep hitting your daily wellness goals and happy investing! 🚀";
     }
@@ -109,7 +122,8 @@ export async function streamCopilotResponse(
 
   // Handle Out of Domain queries politely
   if (intent === "OutOfDomain") {
-    const text = "I'm designed specifically to help with CampusExchange. I can analyze your portfolio, wellness metrics, trading history, and betting activity, or explain platform features. How can I help with your campus exchange account?";
+    const text =
+      "I'm designed specifically to help with CampusExchange. I can analyze your portfolio, wellness metrics, trading history, and betting activity, or explain platform features. How can I help with your campus exchange account?";
     const words = text.split(" ");
     for (let i = 0; i < words.length; i++) {
       onChunk({
@@ -136,7 +150,12 @@ export async function streamCopilotResponse(
   let miniChart: Message["miniChart"];
   let timeline: Message["timeline"];
 
-  if (q.includes("portfolio") || q.includes("holding") || q.includes("pnl") || q.includes("breakdown")) {
+  if (
+    q.includes("portfolio") ||
+    q.includes("holding") ||
+    q.includes("pnl") ||
+    q.includes("breakdown")
+  ) {
     let bestAsset = "None";
     let worstAsset = "None";
     let maxPnl = -Infinity;
@@ -167,42 +186,41 @@ export async function streamCopilotResponse(
     };
   }
 
-  if (q.includes("chart") || q.includes("trend") || q.includes("growth")) {
-    miniChart = {
-      title: "Weekly Activity Trend (Steps)",
-      data: [
-        { label: "Mon", value: 4200 },
-        { label: "Tue", value: 6800 },
-        { label: "Wed", value: 8100 },
-        { label: "Thu", value: 5400 },
-        { label: "Fri", value: 9200 },
-        { label: "Sat", value: 7500 },
-        { label: "Sun", value: appState.profile?.steps_today ?? 8000 },
-      ],
-    };
+  if (userId && (q.includes("chart") || q.includes("trend") || q.includes("growth"))) {
+    // Last 7 logged days from wellness_logs, oldest first
+    const { data: logs } = await supabase
+      .from("wellness_logs")
+      .select("date, steps")
+      .eq("user_id", userId)
+      .order("date", { ascending: false })
+      .limit(7);
+    if (logs?.length) {
+      miniChart = {
+        title: "Recent Activity Trend (Steps)",
+        data: logs.reverse().map((l) => ({
+          label: new Date(`${l.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" }),
+          value: l.steps,
+        })),
+      };
+    }
   }
 
-  if (intent === "Timeline" || q.includes("timeline") || q.includes("what happened")) {
-    timeline = [
-      {
-        time: "Today",
-        type: "wellness",
-        title: "Wellness Log Synchronized",
-        description: `Logged ${appState.profile?.steps_today.toLocaleString() ?? 0} steps and updated Activity Score.`,
-      },
-      {
-        time: "Yesterday",
-        type: "coin",
-        title: "Streak Bonus Coins",
-        description: "Earned +5.00 wellness coins for maintaining step streak.",
-      },
-      {
-        time: "3 days ago",
-        type: "trade",
-        title: "Simulated Index Trade",
-        description: "Purchased shares in Developer skill futures.",
-      },
-    ];
+  if (userId && (intent === "Timeline" || q.includes("timeline") || q.includes("what happened"))) {
+    // The notifications feed is written by database triggers on trades, bets and check-ins
+    const { data: events } = await supabase
+      .from("notifications")
+      .select("kind, title, body, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (events?.length) {
+      timeline = events.map((e) => ({
+        time: formatDistanceToNow(new Date(e.created_at), { addSuffix: true }),
+        type: e.kind === "trade" ? "trade" : e.kind === "wellness" ? "wellness" : "bet",
+        title: e.title,
+        description: e.body,
+      }));
+    }
   }
 
   // Execute Gemini via Secure TanStack Start Server Function
@@ -253,14 +271,19 @@ export async function streamCopilotResponse(
 
 function generateLocalGroundedResponse(
   query: string,
-  context: Record<string, any>,
+  context: RetrievedContext,
   appState: AppState,
 ): string {
   const q = query.toLowerCase();
   const profile = appState.profile;
   const holdings = appState.holdings;
 
-  if (q.includes("portfolio") || q.includes("losing") || q.includes("value") || q.includes("holding")) {
+  if (
+    q.includes("portfolio") ||
+    q.includes("losing") ||
+    q.includes("value") ||
+    q.includes("holding")
+  ) {
     if (holdings.length === 0) {
       return "### Portfolio Grounded Analysis\nYou currently have no active investments in your portfolio.\n\n**Reason / Why:**\nYour coin balance is preserved in cash. Complete your daily wellness check-ins on the Dashboard to earn base coins and buy your first asset index!";
     }
@@ -275,10 +298,10 @@ function generateLocalGroundedResponse(
   }
 
   if (q.includes("activity score") || q.includes("score")) {
-    const doc = context.knowledgeDocs?.find((d: any) => d.id === "activity-score");
+    const doc = context.knowledgeDocs.find((d) => d.id === "activity-score");
     return (
       (doc?.content ??
-      "The Activity Score measures your daily health metrics across Steps (max 40pts), Sleep (max 20pts), Water (max 20pts), and Workouts (20pts).") +
+        "The Activity Score measures your daily health metrics across Steps (max 40pts), Sleep (max 20pts), Water (max 20pts), and Workouts (20pts).") +
       "\n\n**Reason / Why:**\nDaily wellness telemetry directly calculates your base coin earnings each day."
     );
   }

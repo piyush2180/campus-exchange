@@ -5,7 +5,6 @@ import { useApp } from "@/hooks/useApp";
 import { useBets } from "@/hooks/useBets";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { MarketBetsTab } from "@/features/bets/MarketBetsTab";
 import { GoalBetsTab } from "@/features/bets/GoalBetsTab";
 import { DuelBetsTab } from "@/features/bets/DuelBetsTab";
@@ -26,64 +25,43 @@ export const Route = createFileRoute("/app/bets")({
 });
 
 function BetsPage() {
-  const { state, adjustCoins } = useApp();
-  const { bets, placeMarketBet, placeGoalBet, placeDuelBet, resolveBet, refresh } = useBets(
-    state.user?.id ?? null,
-  );
-  const resolvingBetsRef = useRef<Set<string>>(new Set());
+  const { state } = useApp();
+  const userId = state.user?.id ?? null;
+  const { bets, placeMarketBet, placeGoalBet, placeDuelBet, resolveDue, refresh } = useBets(userId);
+  const resolvingRef = useRef(false);
 
-  // Auto-resolve pending bets when their resolve time has passed
+  // When a pending bet is due, ask the server to settle it; payouts happen in resolve_due_bets()
   useEffect(() => {
     const interval = setInterval(async () => {
+      if (resolvingRef.current) return;
       const now = Date.now();
-      for (const bet of bets) {
-        if (bet.status !== "pending") continue;
-        if (new Date(bet.resolves_at).getTime() > now) continue;
-        if (resolvingBetsRef.current.has(bet.id)) continue;
-
-        resolvingBetsRef.current.add(bet.id);
-
-        if (bet.bet_type === "market" && bet.asset_id && bet.start_price != null) {
-          const asset = state.assets.find((a) => a.id === bet.asset_id);
-          if (!asset) continue;
-          const moved =
-            bet.direction === "up" ? asset.price > bet.start_price : asset.price < bet.start_price;
-          if (moved) await adjustCoins(bet.stake * bet.payout_multiplier);
-          await resolveBet(bet.id, moved, asset.price);
-          toast[moved ? "success" : "error"](
-            moved
-              ? `Won ${(bet.stake * bet.payout_multiplier).toFixed(2)} coins on ${asset.ticker}`
-              : `Lost ${bet.stake.toFixed(2)} coins on ${asset.ticker}`,
-          );
-        } else if (bet.bet_type === "goal" && bet.target_value != null && state.profile) {
-          const reached = state.profile.steps_today >= bet.target_value;
-          if (reached) await adjustCoins(bet.stake * bet.payout_multiplier);
-          await resolveBet(bet.id, reached);
-          toast[reached ? "success" : "error"](
-            reached
-              ? `Won ${(bet.stake * bet.payout_multiplier).toFixed(2)} coins on step goal!`
-              : `Step goal missed. Lost ${bet.stake.toFixed(2)} coins.`,
-          );
-        } else if (bet.bet_type === "duel" && bet.opponent_id && state.profile) {
-          const { data: oppProf } = await supabase
-            .from("profiles")
-            .select("total_steps")
-            .eq("id", bet.opponent_id)
-            .maybeSingle();
-          const oppSteps = oppProf?.total_steps ?? 0;
-          const userWon = state.profile.total_steps >= oppSteps;
-          if (userWon) await adjustCoins(bet.stake * bet.payout_multiplier);
-          await resolveBet(bet.id, userWon);
-          toast[userWon ? "success" : "error"](
-            userWon
-              ? `Won ${(bet.stake * bet.payout_multiplier).toFixed(2)} coins on step duel!`
-              : `Step duel lost. Lost ${bet.stake.toFixed(2)} coins.`,
+      if (!bets.some((b) => b.status === "pending" && new Date(b.resolves_at).getTime() <= now))
+        return;
+      resolvingRef.current = true;
+      try {
+        for (const bet of await resolveDue()) {
+          if (bet.user_id !== userId) continue;
+          const won = bet.status === "won";
+          const payout = (bet.stake * bet.payout_multiplier).toFixed(2);
+          const ticker = state.assets.find((a) => a.id === bet.asset_id)?.ticker ?? "";
+          const label =
+            bet.bet_type === "market"
+              ? ticker
+              : bet.bet_type === "goal"
+                ? "step goal"
+                : "step duel";
+          toast[won ? "success" : "error"](
+            won
+              ? `Won ${payout} coins on ${label}!`
+              : `Lost ${bet.stake.toFixed(2)} coins on ${label}.`,
           );
         }
+      } finally {
+        resolvingRef.current = false;
       }
     }, 3000);
     return () => clearInterval(interval);
-  }, [bets, state.assets, state.profile, adjustCoins, resolveBet]);
+  }, [bets, state.assets, userId, resolveDue]);
 
   if (!state.profile) return null;
 
@@ -126,13 +104,9 @@ function BetsPage() {
             coins={state.profile.coins}
             assets={state.assets}
             onPlace={async (asset, dir, stake) => {
-              const ok = await adjustCoins(-stake);
-              if (!ok) {
-                toast.error("Not enough coins");
-                return;
-              }
               const res = await placeMarketBet(asset, dir, stake);
-              if (res.ok) {
+              if (!res.ok) toast.error(res.reason);
+              else {
                 toast.success(`Bet placed on ${asset.ticker} ${dir.toUpperCase()}`, {
                   description: `Resolves in 60s · 1.8x payout`,
                 });
@@ -146,13 +120,9 @@ function BetsPage() {
             coins={state.profile.coins}
             stepsToday={state.profile.steps_today}
             onPlace={async (goal, stake) => {
-              const ok = await adjustCoins(-stake);
-              if (!ok) {
-                toast.error("Not enough coins");
-                return;
-              }
-              const res = await placeGoalBet(goal, stake, state.profile!.steps_today);
-              if (res.ok) {
+              const res = await placeGoalBet(goal, stake);
+              if (!res.ok) toast.error(res.reason);
+              else {
                 toast.success(
                   `Bet ${stake} coins on hitting ${goal.toLocaleString()} steps today`,
                   {
@@ -170,13 +140,9 @@ function BetsPage() {
             currentUserId={state.user?.id ?? ""}
             currentSteps={state.profile.steps_today}
             onPlace={async (opponentId, stake) => {
-              const ok = await adjustCoins(-stake);
-              if (!ok) {
-                toast.error("Not enough coins");
-                return;
-              }
-              const res = await placeDuelBet(opponentId, stake, state.profile!.steps_today);
-              if (res.ok) {
+              const res = await placeDuelBet(opponentId, stake);
+              if (!res.ok) toast.error(res.reason);
+              else {
                 toast.success("Duel created", {
                   description: "Whoever logs more steps in 24h wins the pot.",
                 });

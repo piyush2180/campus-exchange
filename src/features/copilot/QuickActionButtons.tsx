@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, type LinkProps } from "@tanstack/react-router";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -21,7 +21,7 @@ export function QuickActionButtons({ actions, onActionClick }: QuickActionButton
           size="sm"
           className="h-7 text-xs gap-1 bg-card/80 hover:bg-muted border-border/80 text-foreground"
           onClick={() => {
-            navigate({ to: act.route as any });
+            navigate({ to: act.route as LinkProps["to"] });
             if (onActionClick) onActionClick();
           }}
         >

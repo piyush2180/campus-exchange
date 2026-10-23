@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Asset, Bet } from "@/types";
-import {
-  fetchUserBets,
-  createMarketBet,
-  createGoalBet,
-  createDuelBet,
-  updateBetStatus,
-} from "@/services/bets.service";
+import { fetchUserBets, placeBet, resolveDueBets } from "@/services/bets.service";
 
 export type { Bet };
 
@@ -48,75 +42,48 @@ export function useBets(userId: string | null) {
     };
   }, [userId, refresh]);
 
-  const placeMarketBet = useCallback(
-    async (asset: Asset, direction: "up" | "down", stake: number) => {
-      if (!userId) return { ok: false as const };
-      const resolvesAt = new Date(Date.now() + 60_000).toISOString();
-      const { data, error } = await createMarketBet({
-        user_id: userId,
-        bet_type: "market",
-        asset_id: asset.id,
-        direction,
-        stake,
-        payout_multiplier: 1.8,
-        start_price: asset.price,
-        resolves_at: resolvesAt,
-      });
-      if (error || !data) return { ok: false as const };
+  const place = useCallback(
+    async (bet: Parameters<typeof placeBet>[0]) => {
+      if (!userId) return { ok: false as const, reason: "Not signed in" };
+      const { data, error } = await placeBet(bet);
+      if (error || !data) return { ok: false as const, reason: error?.message ?? "Bet failed" };
       await refresh();
       return { ok: true as const, bet: data as Bet };
     },
     [userId, refresh],
   );
 
+  const placeMarketBet = useCallback(
+    (asset: Asset, direction: "up" | "down", stake: number) =>
+      place({ p_bet_type: "market", p_stake: stake, p_asset_id: asset.id, p_direction: direction }),
+    [place],
+  );
+
   const placeGoalBet = useCallback(
-    async (stepGoal: number, stake: number, currentSteps: number) => {
-      if (!userId) return { ok: false as const };
+    (stepGoal: number, stake: number) => {
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
-      const { error } = await createGoalBet({
-        user_id: userId,
-        bet_type: "goal",
-        stake,
-        payout_multiplier: 2.0,
-        target_value: stepGoal,
-        start_steps: currentSteps,
-        resolves_at: endOfDay.toISOString(),
+      return place({
+        p_bet_type: "goal",
+        p_stake: stake,
+        p_target_steps: stepGoal,
+        p_resolves_at: endOfDay.toISOString(),
       });
-      if (error) return { ok: false as const };
-      await refresh();
-      return { ok: true as const };
     },
-    [userId, refresh],
+    [place],
   );
 
   const placeDuelBet = useCallback(
-    async (opponentId: string, stake: number, currentSteps: number) => {
-      if (!userId) return { ok: false as const };
-      const resolvesAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      const { error } = await createDuelBet({
-        user_id: userId,
-        bet_type: "duel",
-        stake,
-        payout_multiplier: 2.0,
-        opponent_id: opponentId,
-        start_steps: currentSteps,
-        resolves_at: resolvesAt,
-      });
-      if (error) return { ok: false as const };
-      await refresh();
-      return { ok: true as const };
-    },
-    [userId, refresh],
+    (opponentId: string, stake: number) =>
+      place({ p_bet_type: "duel", p_stake: stake, p_opponent_id: opponentId }),
+    [place],
   );
 
-  const resolveBet = useCallback(
-    async (betId: string, won: boolean, endPrice?: number) => {
-      const { error } = await updateBetStatus(betId, won ? "won" : "lost", endPrice);
-      if (!error) await refresh();
-    },
-    [refresh],
-  );
+  const resolveDue = useCallback(async () => {
+    const { data } = await resolveDueBets();
+    if (data.length) await refresh();
+    return data;
+  }, [refresh]);
 
-  return { bets, loading, refresh, placeMarketBet, placeGoalBet, placeDuelBet, resolveBet };
+  return { bets, loading, refresh, placeMarketBet, placeGoalBet, placeDuelBet, resolveDue };
 }
