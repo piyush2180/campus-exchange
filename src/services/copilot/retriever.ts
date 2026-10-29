@@ -1,6 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
 import { KNOWLEDGE_BASE_DOCS, type KnowledgeDoc } from "./knowledgeBase";
-import { embedQuery } from "./copilot.server";
 import type { AppState } from "@/types";
 
 export type RetrievedContext = {
@@ -155,46 +154,15 @@ export async function retrieveContext(
     }
   }
 
-  // 2. Knowledge Base: pgvector semantic search, keyword matching if embeddings are unavailable
-  let matchedDocs: KnowledgeDoc[] = [];
-  try {
-    matchedDocs = await vectorSearch(query);
-    if (matchedDocs.length > 0) sources.add("Knowledge Base (pgvector)");
-  } catch (err) {
-    console.warn("pgvector search unavailable, falling back to keyword matching:", err);
-  }
-
-  if (matchedDocs.length === 0) {
-    matchedDocs = keywordSearch(q);
-    if (matchedDocs.length > 0) sources.add("Knowledge Base");
-  }
+  // 2. Knowledge Base: keyword matching over the platform guides
+  const matchedDocs = keywordSearch(q);
+  if (matchedDocs.length > 0) sources.add("Knowledge Base");
 
   return {
     sqlData,
     knowledgeDocs: matchedDocs,
     sources: Array.from(sources),
   };
-}
-
-/**
- * Semantic search: embeds the query with Gemini (server-side) and ranks knowledge_docs
- * by cosine similarity in Postgres via the match_knowledge_docs pgvector function.
- */
-export async function vectorSearch(query: string, topK: number = 3): Promise<KnowledgeDoc[]> {
-  const { embedding } = await embedQuery({ data: { text: query } });
-  const { data, error } = await supabase.rpc("match_knowledge_docs", {
-    query_embedding: JSON.stringify(embedding),
-    match_count: topK,
-  });
-  if (error) throw error;
-
-  return (data ?? []).map((d) => ({
-    id: d.id,
-    title: d.title,
-    category: d.category as KnowledgeDoc["category"],
-    content: d.content,
-    tags: d.tags,
-  }));
 }
 
 function keywordSearch(q: string): KnowledgeDoc[] {

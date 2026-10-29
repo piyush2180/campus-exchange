@@ -10,7 +10,6 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "embed:knowledge": "node --experimental-strip-types --env-file=.env scripts/embed-knowledge.ts",
     "test:db": "node --experimental-strip-types scripts/test-migrations.ts"
   },
   "dependencies": {

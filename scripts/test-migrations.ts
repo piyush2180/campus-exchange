@@ -5,10 +5,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { vector } from "@electric-sql/pglite/vector";
 
 const ROOT = fileURLToPath(new URL("../supabase/migrations", import.meta.url));
-const db = new PGlite({ extensions: { vector } });
+const db = new PGlite();
 let failures = 0;
 const ok = (cond: unknown, msg: string) => {
   console.log(`${cond ? "PASS" : "FAIL"}  ${msg}`);
@@ -283,24 +282,6 @@ ok(JSON.stringify(p1) === JSON.stringify(p2), "second tick within 5s is a no-op"
 ok(
   p1.every((r, i) => Math.abs(Number(r.price) / Number(p0[i].price) - 1) <= 0.02 + 1e-9),
   "each tick moves at most 2%",
-);
-
-// ── pgvector ──
-await db.exec(`RESET ROLE;
-  INSERT INTO knowledge_docs (id, title, category, content, embedding) VALUES
-    ('near', 'Near', 'guide', 'n', (SELECT array_agg(CASE WHEN g = 1 THEN 1 ELSE 0 END)::real[]::extensions.vector FROM generate_series(1, 768) g)),
-    ('far',  'Far',  'guide', 'f', (SELECT array_agg(CASE WHEN g = 2 THEN 1 ELSE 0 END)::real[]::extensions.vector FROM generate_series(1, 768) g));`);
-await as(A);
-const query = JSON.stringify(
-  Array.from({ length: 768 }, (_, i) => (i === 0 ? 0.9 : i === 1 ? 0.1 : 0)),
-);
-const hits = await q<{ id: string; similarity: number }>(
-  `SELECT id, similarity FROM match_knowledge_docs($1::extensions.vector, 3)`,
-  [query],
-);
-ok(
-  hits.length === 1 && hits[0].id === "near" && hits[0].similarity > 0.99,
-  "match_knowledge_docs ranks by cosine similarity and applies the threshold",
 );
 
 console.log(failures === 0 ? "\nALL PASSED" : `\n${failures} FAILED`);

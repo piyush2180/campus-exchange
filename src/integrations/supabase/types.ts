@@ -218,36 +218,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      knowledge_docs: {
-        Row: {
-          category: string;
-          content: string;
-          embedding: string;
-          id: string;
-          tags: string[];
-          title: string;
-          updated_at: string;
-        };
-        Insert: {
-          category: string;
-          content: string;
-          embedding: string;
-          id: string;
-          tags?: string[];
-          title: string;
-          updated_at?: string;
-        };
-        Update: {
-          category?: string;
-          content?: string;
-          embedding?: string;
-          id?: string;
-          tags?: string[];
-          title?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
       market_assets: {
         Row: {
           change: number;
@@ -352,21 +322,6 @@ export type Database = {
       trade_asset: {
         Args: { p_asset_id: string; p_shares: number; p_side: string };
         Returns: Json;
-      };
-      match_knowledge_docs: {
-        Args: {
-          match_count?: number;
-          min_similarity?: number;
-          query_embedding: string;
-        };
-        Returns: {
-          category: string;
-          content: string;
-          id: string;
-          similarity: number;
-          tags: string[];
-          title: string;
-        }[];
       };
     };
     Enums: {

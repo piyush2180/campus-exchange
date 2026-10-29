@@ -75,7 +75,7 @@
 
 ### 🧠 Pulse AI Copilot (SQL-Grounded AI Generation)
 * **SQL-Grounded Context Engine**: Queries live PostgreSQL data (holdings, wellness logs, bets, asset movements) and injects it as structured JSON context into Gemini 2.5 Flash, so answers about the user's numbers come from the database.
-* **pgvector Semantic Retrieval**: Platform guides are embedded with Gemini `gemini-embedding-001` (768 dimensions) and stored in a `knowledge_docs` table with an HNSW index. Each question is embedded server-side and matched by cosine similarity through the `match_knowledge_docs` SQL function, with keyword matching as a fallback.
+* **Knowledge Base Matching**: Platform guides (activity score, market rules, bets, portfolio) are matched to the question by keywords and tags and added to the prompt next to the SQL data.
 * **Page & Context Awareness**: Automatically interprets user queries like *"Explain this"* based on the active route and view state.
 * **Universal Page Summaries (`✨ AI Summary`)**: One-click inline cards analyzing portfolio concentration, habit trends, and market volatility.
 * **Navigation Automation**: Interprets natural language commands like *"Take me to my portfolio"* and executes client-side routing.
@@ -96,7 +96,7 @@ graph TD
 
     Client <-->|Row Level Security / Auth| Supabase
     Supabase -->|Realtime postgres_changes| Client
-    Supabase <-->|Relational SQL Queries + pgvector| DB
+    Supabase <-->|Relational SQL Queries| DB
     Client <-->|State / Route Telemetry| PulseAI
     PulseAI <-->|SQL Data + Knowledge Context| Gemini
     PulseAI -->|Streamed Markdown / Navigation Actions| Client
@@ -113,8 +113,7 @@ graph TD
     IntentClassifier -->|Greeting / OutOfDomain| InstantResponse[Instant Response Handler]
     
     DualRetriever -->|SQL Telemetry| SQLStore[(PostgreSQL Database)]
-    DualRetriever -->|Query Embedding| Embedder[Gemini Embeddings]
-    Embedder -->|Cosine Similarity| KnowledgeStore[(pgvector knowledge_docs)]
+    DualRetriever -->|Keyword Match| KnowledgeStore[(Platform Knowledge Base)]
     
     SQLStore --> GroundedPromptBuilder[Grounded Prompt Builder]
     KnowledgeStore --> GroundedPromptBuilder
@@ -196,22 +195,14 @@ Create a `.env` file in the root directory:
 VITE_SUPABASE_URL="https://your-supabase-project.supabase.co"
 VITE_SUPABASE_PUBLISHABLE_KEY="your-supabase-publishable-key"
 GEMINI_API_KEY="your-google-gemini-api-key"
-# Only needed by the knowledge base embedding script, never exposed to the client
-SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
 ```
 
 ### 5. Apply Database Migrations
-Apply everything in `supabase/migrations` in order (for example with `supabase db push`). `20261023000000_realtime_pgvector_activity.sql` enables `pgvector`, creates the knowledge base, asset movement and notification tables with their triggers, and adds the tables to the Supabase Realtime publication. `20261023010000_server_authoritative_economy.sql` adds the shared `market_assets` table and the trade, bet and check-in functions, and revokes direct client writes to balances.
+Apply everything in `supabase/migrations` in order (for example with `supabase db push`). `20261023000000_realtime_activity.sql` creates the asset movement and notification tables with their triggers, and adds the tables to the Supabase Realtime publication. `20261023010000_server_authoritative_economy.sql` adds the shared `market_assets` table and the trade, bet and check-in functions, and revokes direct client writes to balances.
 
 To check the migrations locally without a Supabase project, run `npm run test:db`. It applies every migration to PGlite (Postgres compiled to WASM) and tests the grants, RLS and economy functions.
 
-### 6. Embed the Knowledge Base
-```bash
-npm run embed:knowledge
-```
-Run this again whenever `src/services/copilot/knowledgeBase.ts` changes.
-
-### 7. Start Development Server
+### 6. Start Development Server
 ```bash
 npm run dev
 ```
@@ -223,7 +214,6 @@ Open your browser and navigate to `http://localhost:3000`.
 
 * **SQL-First Grounding**: Financial holdings, wallet balances, and health logs are queried directly from PostgreSQL to guarantee zero hallucination on user telemetry.
 * **Resilient Stream Fallback**: Features a local grounded synthesis fallback engine so users receive immediate, accurate responses even if external LLM API rates are exceeded.
-* **Hybrid Retrieval**: Exact SQL for user numbers, pgvector semantic search for platform knowledge. Numbers are never retrieved from lossy embeddings.
 * **Server-Authoritative Economy**: Coins only move inside Postgres functions with row locks, so a modified client cannot mint coins, settle its own bets or trade at a fake price. The migrations are tested against a real Postgres engine (PGlite) covering permissions, overspend, payouts, streak bonuses and tick throttling.
 * **Database-Driven Status Updates**: Notifications are written by `SECURITY DEFINER` triggers, so every trade, bet result and check-in produces a status update without extra client code.
 * **Type-Safe Full-Stack Design**: Strict TypeScript contracts spanning Supabase schemas, TanStack routes, and component interfaces.
@@ -238,7 +228,6 @@ Open your browser and navigate to `http://localhost:3000`.
 - [x] 60s Market Predictions & Step Duels
 - [x] Pulse AI Copilot with Grounded SQL Retrieval
 - [x] Universal Page AI Summaries & Navigation Actions
-- [x] pgvector Semantic Embedding Retrieval
 - [x] Real-Time Sync, Asset Movement Logs & Dashboard Notifications
 - [x] Server-Authoritative Trades, Bets & Rewards
 - [ ] Native Mobile App (React Native / Expo)

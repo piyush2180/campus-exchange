@@ -47,8 +47,8 @@ function AIArchitectureShowcase() {
             </span>
             <p className="text-sm font-semibold">SQL & Knowledge Matcher</p>
             <p className="text-xs text-muted-foreground">
-              Queries structured Supabase SQL database for live holdings/logs + ranks platform
-              guides by pgvector cosine similarity.
+              Queries structured Supabase SQL database for live holdings/logs + matches platform
+              guides by keywords and tags.
             </p>
           </div>
 
@@ -85,22 +85,20 @@ function AIArchitectureShowcase() {
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
             Relational financial and wellness data (holdings, balance, trades, bets, wellness logs)
-            is always queried directly from PostgreSQL via Supabase Row Level Security. Relational
-            data is never hallucinated or retrieved from lossy embeddings.
+            is always queried directly from PostgreSQL via Supabase Row Level Security, so answers
+            about your numbers come from the database.
           </p>
         </div>
 
         <div className="surface-card p-6 space-y-3">
           <div className="flex items-center gap-2 text-foreground font-bold text-base">
             <Server className="h-5 w-5 text-purple-400" />
-            pgvector Semantic Retrieval
+            Knowledge Base Matching
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Platform guides are embedded with Gemini (768 dimensions) and stored in a pgvector{" "}
-            <code className="text-foreground">knowledge_docs</code> table. Each question is embedded
-            server-side and matched with the{" "}
-            <code className="text-foreground">match_knowledge_docs</code> cosine-similarity
-            function, falling back to keyword matching if embeddings are unavailable.
+            Platform guides covering the activity score, market rules, bets and portfolio are
+            matched to each question by keywords and tags, then added to the prompt next to the SQL
+            data.
           </p>
         </div>
       </div>
